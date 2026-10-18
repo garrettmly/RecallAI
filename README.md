@@ -25,10 +25,6 @@ Then start the app and open [http://localhost:5173](http://localhost:5173) in Ch
 npm run dev
 ```
 
-Press **Start**. Sit in front of the laptop and say something like: “Hi, I’m Mateo, I’m your grandson, and I have a dog named Pepper.” The card fills in after a short pause in speech. Pause, then sit down again without saying the name. Mateo’s card should come back.
-
-The key stays in `.env`, which git ignores. A local route on the dev server calls Claude. The browser never receives the key.
-
 ## How a face becomes a memory
 
 Face matching runs in the browser with [face-api](https://github.com/vladmandic/face-api) (MIT). A detected face becomes a list of numbers called a descriptor. Porchlight compares that list with descriptors already saved in IndexedDB. The comparison is Euclidean distance: smaller means more alike.
@@ -47,7 +43,7 @@ Change `MATCH_DISTANCE` if the app mixes two people up, or fails to recognize so
 
 Chrome’s speech recognition turns the microphone into text. In Chrome, that audio is sent to Chrome’s speech service. Porchlight does not save the audio.
 
-After a pause in speech, the new text goes to `POST /api/extract`. The server calls the AI model (`claude-haiku-5-5` unless `ANTHROPIC_MODEL` is set or a different model provider is used) with the instruction in [`server/prompt.mjs`](server/prompt.mjs). That file is the place to change what counts as worth remembering. Claude is told to leave a field empty when the conversation did not say it.
+After a pause in speech, the new text goes to `POST /api/extract`. The server calls the AI model (`claude-haiku-5-5` unless `ANTHROPIC_MODEL` is set or a different model provider is used) with the instruction in [`server/prompt.mjs`](server/prompt.mjs). That file is the place to change what counts as worth remembering. The AI model is told to leave a field empty when the conversation did not say it.
 
 The name, relationship, facts, a short transcript excerpt, and the face descriptors are stored in IndexedDB on this computer. **Delete everything on this computer** clears that database. **Pause** turns the camera and microphone off.
 
