@@ -56,21 +56,12 @@ The name, relationship, facts, a short transcript excerpt, and the face descript
 - React and Vite for the interface
 - `@vladmandic/face-api` for on-device face detection and descriptors
 - Chrome Web Speech API for the transcript
-- Anthropic Messages API, model `claude-haiku-5-5`, for memory notes
+- Anthropic Messages API for memory notes
 - IndexedDB for the memory book
 
 ## Privacy
 
 Memories, including face descriptors, stay in this browser’s IndexedDB. The transcript text is sent to Anthropic so Claude can extract notes. Chrome’s speech recognition sends microphone audio to its own speech service. Say that plainly if you demo the app.
-
-## Congressional App Challenge
-
-The 2026 rules ask for original student work. AI assistance has to be disclosed, and it cannot be the whole technical effort. This repository was built with help from an AI coding assistant in Cursor. Before you submit:
-
-- Explain, in your own words, how a face is matched on this computer and how a transcript becomes a name and a fact.
-- Change something yourself. The match distances in `src/vision/thresholds.ts` and the instruction in `server/prompt.mjs` are the easiest places.
-- Disclose the AI assistance in the written submission.
-- Record the 1–3 minute video yourself. Include your name, the app name, a one-sentence purpose, who it is for, the tools you used, and a live demo.
 
 ## Checks
 
