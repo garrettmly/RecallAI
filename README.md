@@ -47,7 +47,7 @@ Change `MATCH_DISTANCE` if the app mixes two people up, or fails to recognize so
 
 Chrome’s speech recognition turns the microphone into text. In Chrome, that audio is sent to Chrome’s speech service. Porchlight does not save the audio.
 
-After a pause in speech, the new text goes to `POST /api/extract`. The server calls Claude Haiku (`claude-haiku-5-5` unless `ANTHROPIC_MODEL` is set) with the instruction in [`server/prompt.mjs`](server/prompt.mjs). That file is the place to change what counts as worth remembering. Claude is told to leave a field empty when the conversation did not say it.
+After a pause in speech, the new text goes to `POST /api/extract`. The server calls the AI model (`claude-haiku-5-5` unless `ANTHROPIC_MODEL` is set or a different model provider is used) with the instruction in [`server/prompt.mjs`](server/prompt.mjs). That file is the place to change what counts as worth remembering. Claude is told to leave a field empty when the conversation did not say it.
 
 The name, relationship, facts, a short transcript excerpt, and the face descriptors are stored in IndexedDB on this computer. **Delete everything on this computer** clears that database. **Pause** turns the camera and microphone off.
 
