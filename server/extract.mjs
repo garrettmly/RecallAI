@@ -73,6 +73,9 @@ export function handleExtract(req, res, env) {
                   facts: Array.isArray(current.facts)
                     ? current.facts.filter((fact) => typeof fact === "string").slice(0, 12)
                     : [],
+                  reminders: Array.isArray(current.reminders)
+                    ? current.reminders.filter((item) => typeof item === "string").slice(0, 12)
+                    : [],
                 },
                 transcript,
               }),

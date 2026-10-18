@@ -28,7 +28,9 @@ export async function loadPeople(): Promise<Person[]> {
   const db = await openBook();
   const people = await requestToPromise(db.transaction(STORE).objectStore(STORE).getAll());
   db.close();
-  return (people as Person[]).sort((a, b) => b.lastSeenAt - a.lastSeenAt);
+  return (people as Person[])
+    .map((person) => ({ ...person, reminders: Array.isArray(person.reminders) ? person.reminders : [] }))
+    .sort((a, b) => b.lastSeenAt - a.lastSeenAt);
 }
 
 export async function savePerson(person: Person): Promise<void> {

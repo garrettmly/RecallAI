@@ -2,6 +2,7 @@ export type Card = {
   name: string | null;
   relationship: string | null;
   facts: string[];
+  reminders: string[];
 };
 
 export function plausibleName(value: unknown): string | null;

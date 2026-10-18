@@ -20,5 +20,6 @@ export async function extractNotes(input: {
     name: body.name ?? null,
     relationship: body.relationship ?? null,
     facts: Array.isArray(body.facts) ? body.facts : [],
+    reminders: Array.isArray(body.reminders) ? body.reminders : [],
   };
 }

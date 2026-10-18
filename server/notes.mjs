@@ -47,7 +47,7 @@ export function parseModelText(text) {
   const start = body.indexOf("{");
   const end = body.lastIndexOf("}");
   if (start === -1 || end <= start) {
-    return { name: null, relationship: null, facts: [] };
+    return { name: null, relationship: null, facts: [], reminders: [] };
   }
   try {
     const parsed = JSON.parse(body.slice(start, end + 1));
@@ -55,9 +55,10 @@ export function parseModelText(text) {
       name: plausibleName(parsed.name),
       relationship: plausibleRelationship(parsed.relationship),
       facts: cleanFacts(parsed.facts),
+      reminders: cleanFacts(parsed.reminders),
     };
   } catch {
-    return { name: null, relationship: null, facts: [] };
+    return { name: null, relationship: null, facts: [], reminders: [] };
   }
 }
 
@@ -72,9 +73,19 @@ export function mergeCard(current, incoming) {
     seen.add(key);
     facts.push(text);
   }
+  const reminders = [];
+  const seenReminders = new Set();
+  for (const text of [...(current.reminders || []), ...(incoming.reminders || [])]) {
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seenReminders.has(key)) continue;
+    seenReminders.add(key);
+    reminders.push(text);
+  }
   return {
     name,
     relationship: incoming.relationship || current.relationship || null,
     facts: facts.slice(-12),
+    reminders: reminders.slice(-12),
   };
 }

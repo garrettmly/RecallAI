@@ -26,6 +26,14 @@ test("keeps a short spoken name and merges without duplicates", () => {
   assert.deepEqual(merged.facts, ["visits on Sundays"]);
 });
 
+test("keeps a spoken reminder and drops a duplicate", () => {
+  const notes = parseModelText(
+    '{"name":"Mateo","relationship":null,"facts":["has a dog named Pepper"],"reminders":["call the doctor tomorrow","call the doctor tomorrow"]}',
+  );
+  assert.deepEqual(notes.reminders, ["call the doctor tomorrow"]);
+  assert.deepEqual(notes.facts, ["has a dog named Pepper"]);
+});
+
 test("does not wipe an existing name when the model is unsure", () => {
   const merged = mergeCard(
     { name: "Ada", relationship: "neighbor", facts: ["brings oranges"] },

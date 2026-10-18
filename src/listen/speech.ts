@@ -9,6 +9,8 @@ type SpeechRecognitionLike = {
   lang: string;
   start: () => void;
   stop: () => void;
+  onspeechstart: (() => void) | null;
+  onspeechend: (() => void) | null;
   onresult: ((event: SpeechResultEvent) => void) | null;
   onerror: ((event: { error: string }) => void) | null;
   onend: (() => void) | null;
@@ -27,10 +29,43 @@ export type SpeechHandlers = {
   onInterim: (text: string) => void;
   onFinal: (text: string) => void;
   onError: (message: string) => void;
+  onSpeechStart?: () => void;
+  onSpeechEnd?: () => void;
+  onDone?: () => void;
 };
 
+function speechConstructor(): SpeechConstructor | null {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function reportSpeechError(error: string, onError: (message: string) => void): void {
+  if (error === "no-speech" || error === "aborted") return;
+  if (error === "not-allowed") {
+    onError("The microphone is blocked. Allow it in the browser, then turn the microphone on.");
+    return;
+  }
+  if (error === "audio-capture") {
+    onError("No microphone was found.");
+    return;
+  }
+  if (error === "network") onError("Speech recognition needs a network connection.");
+}
+
+function spokenText(event: SpeechResultEvent, from = 0): { interim: string; confirmed: string } {
+  let interim = "";
+  let confirmed = "";
+  for (let index = from; index < event.results.length; index += 1) {
+    const result = event.results[index];
+    const text = result[0]?.transcript?.trim() ?? "";
+    if (!text) continue;
+    if (result.isFinal) confirmed = `${confirmed} ${text}`.trim();
+    else interim = `${interim} ${text}`.trim();
+  }
+  return { interim, confirmed };
+}
+
 export function startListening(handlers: SpeechHandlers): { stop: () => void } | null {
-  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const Ctor = speechConstructor();
   if (!Ctor) return null;
 
   const recognition = new Ctor();
@@ -39,31 +74,17 @@ export function startListening(handlers: SpeechHandlers): { stop: () => void } |
   recognition.lang = "en-US";
   let alive = true;
 
+  recognition.onspeechstart = () => handlers.onSpeechStart?.();
+  recognition.onspeechend = () => handlers.onSpeechEnd?.();
+
   recognition.onresult = (event) => {
-    let interim = "";
-    for (let index = event.resultIndex; index < event.results.length; index += 1) {
-      const result = event.results[index];
-      const text = result[0]?.transcript?.trim() ?? "";
-      if (!text) continue;
-      if (result.isFinal) handlers.onFinal(text);
-      else interim = text;
-    }
-    if (interim) handlers.onInterim(interim);
+    const { interim, confirmed } = spokenText(event, event.resultIndex);
+    if (confirmed) handlers.onFinal(confirmed);
+    else if (interim) handlers.onInterim(interim);
   };
 
   recognition.onerror = (event) => {
-    if (event.error === "no-speech" || event.error === "aborted") return;
-    if (event.error === "not-allowed") {
-      handlers.onError("The microphone is blocked. Allow it in the browser, then press Resume.");
-      return;
-    }
-    if (event.error === "audio-capture") {
-      handlers.onError("No microphone was found.");
-      return;
-    }
-    if (event.error === "network") {
-      handlers.onError("Speech recognition needs a network connection.");
-    }
+    reportSpeechError(event.error, handlers.onError);
   };
 
   recognition.onend = () => {
@@ -75,7 +96,7 @@ export function startListening(handlers: SpeechHandlers): { stop: () => void } |
       } catch {
         // Chrome throws if start overlaps the previous session. The next onend retries.
       }
-    }, 250);
+    }, 40);
   };
 
   try {
@@ -94,6 +115,72 @@ export function startListening(handlers: SpeechHandlers): { stop: () => void } |
       } catch {
         // Already stopped.
       }
+    },
+  };
+}
+
+export function dictateOnce(handlers: SpeechHandlers): { stop: () => void } | null {
+  const Ctor = speechConstructor();
+  if (!Ctor) return null;
+
+  const recognition = new Ctor();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+  let stopped = false;
+  let finish: (() => void) | null = null;
+
+  const done = () => {
+    if (stopped) return;
+    stopped = true;
+    handlers.onDone?.();
+  };
+
+  recognition.onresult = (event) => {
+    const { interim, confirmed } = spokenText(event);
+    const text = `${confirmed} ${interim}`.trim();
+    if (!text) return;
+    if (confirmed && !interim) handlers.onFinal(confirmed);
+    else handlers.onInterim(text);
+  };
+
+  recognition.onerror = (event) => {
+    reportSpeechError(event.error, handlers.onError);
+  };
+
+  recognition.onend = () => done();
+
+  const begin = () => {
+    if (stopped) return;
+    try {
+      recognition.start();
+    } catch {
+      window.setTimeout(() => {
+        if (stopped) return;
+        try {
+          recognition.start();
+        } catch {
+          handlers.onError("The microphone did not start.");
+          done();
+        }
+      }, 220);
+    }
+  };
+  begin();
+
+  finish = () => {
+    recognition.onend = null;
+    try {
+      recognition.stop();
+    } catch {
+      // Already stopped.
+    }
+    done();
+  };
+
+  return {
+    stop() {
+      finish?.();
     },
   };
 }
