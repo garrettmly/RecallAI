@@ -169,66 +169,56 @@ h1 {
 
 .facts.compact { font-size: 1.05rem; }
 
-.reminder-rail {
+.notepad {
   position: fixed;
-  top: 5.1rem;
+  top: 4.6rem;
   left: 0.85rem;
   z-index: 5;
-  width: min(20rem, calc(100vw - 1.7rem));
+  width: min(17rem, calc(100vw - 1.7rem));
   max-height: calc(100vh - 10rem);
   overflow: auto;
-  padding: 0.95rem 1rem 1.05rem;
+  padding: 0.45rem 0.7rem 0.55rem;
   color: #fffaf3;
-  background: rgba(18, 14, 12, 0.78);
-  border: 1px solid rgba(255, 250, 243, 0.22);
-  border-radius: 1.15rem;
+  background: rgba(18, 14, 12, 0.5);
+  border: 1px solid rgba(255, 250, 243, 0.16);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(8px);
 }
 
-.reminder-rail h2 {
+.notepad h2 {
   margin: 0;
-  font-family: Georgia, "Iowan Old Style", serif;
-  font-size: 1.7rem;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-
-.reminder-rail .quiet-line {
-  margin: 0.7rem 0 0;
-  color: rgba(255, 250, 243, 0.72);
-  font-size: 1.15rem;
-}
-
-.reminder-list {
-  list-style: none;
-  margin: 0.85rem 0 0;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.reminder-list li {
-  background: rgba(255, 250, 243, 0.1);
-  border: 1px solid rgba(255, 250, 243, 0.18);
-  border-radius: 1rem;
-  padding: 0.85rem 0.9rem 0.9rem;
-}
-
-.reminder-list p {
-  margin: 0;
-  font-size: 1.35rem;
-  line-height: 1.3;
-}
-
-.reminder-list .meta {
-  margin-top: 0.3rem;
-  font-size: 0.95rem;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: rgba(255, 250, 243, 0.68);
 }
 
-.reminder-list button {
-  margin-top: 0.7rem;
-  min-height: 2.4rem;
-  padding: 0.35rem 0.95rem;
+.notepad .quiet-line {
+  margin: 0.2rem 0 0;
+  color: rgba(255, 250, 243, 0.78);
+  font-size: 0.82rem;
+}
+
+.notepad-lines {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+}
+
+.notepad-lines li {
+  display: grid;
+  gap: 0.05rem;
+  padding: 0.32rem 0;
+  border-top: 1px solid rgba(255, 250, 243, 0.14);
+  font-size: 0.88rem;
+  line-height: 1.3;
+}
+
+.notepad-lines .who {
+  color: rgba(255, 250, 243, 0.62);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
 }
 
 .note.reminder { background: rgba(154, 78, 28, 0.92); }
@@ -418,10 +408,44 @@ code {
   z-index: 4;
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.7rem;
   width: min(46rem, calc(100% - 1.5rem));
   transform: translateX(-50%);
+}
+
+.search-stack {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.suggestions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.45rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.suggestion {
+  flex: 0 0 auto;
+  min-height: 2.15rem;
+  padding: 0.28rem 0.9rem;
+  border-radius: 999px;
+  color: #fffaf3;
+  background: rgba(18, 14, 12, 0.58);
+  border: 1px solid rgba(255, 250, 243, 0.28);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+}
+
+.suggestion:hover {
+  background: rgba(18, 14, 12, 0.78);
 }
 
 .device {

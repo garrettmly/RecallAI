@@ -98,7 +98,7 @@ export function App() {
         </nav>
       </header>
 
-      {live ? <Reminders people={app.people} onDone={app.finishReminder} /> : null}
+      {live ? <Reminders people={app.people} /> : null}
 
       <div className="stage">
         {app.view === "visit" ? (

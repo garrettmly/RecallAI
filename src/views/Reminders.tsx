@@ -1,33 +1,49 @@
 import type { Person } from "../types";
 
-type RemindersProps = {
-  people: Person[];
-  onDone: (personId: string, reminderId: string) => void;
+type NoteLine = {
+  key: string;
+  text: string;
+  at: number;
+  who: string | null;
 };
 
-export function Reminders({ people, onDone }: RemindersProps) {
-  const open = people
-    .flatMap((person) =>
-      (person.reminders ?? [])
-        .filter((item) => !item.done)
-        .map((item) => ({ ...item, personId: person.id, who: person.name })),
-    )
-    .sort((left, right) => right.at - left.at);
+function linesFrom(people: Person[]): NoteLine[] {
+  const lines: NoteLine[] = [];
+  for (const person of people) {
+    const who = person.name;
+    for (const fact of person.facts) {
+      lines.push({ key: fact.id, text: fact.text, at: fact.at, who });
+    }
+    for (const reminder of person.reminders ?? []) {
+      lines.push({ key: reminder.id, text: reminder.text, at: reminder.at, who });
+    }
+  }
+  const seen = new Set<string>();
+  return lines
+    .sort((left, right) => left.at - right.at)
+    .filter((line) => {
+      const id = `${line.who ?? ""}:${line.text.toLowerCase()}`;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    })
+    .slice(-12);
+}
+
+export function Reminders({ people }: { people: Person[] }) {
+  const lines = linesFrom(people);
 
   return (
-    <aside className="reminder-rail" aria-label="Reminders">
-      <h2>Reminders</h2>
-      {open.length === 0 ? (
-        <p className="quiet-line">Nothing to remember yet.</p>
+    <aside className="notepad" aria-label="Notes">
+      <h2>Notes</h2>
+      {lines.length === 0 ? (
+        <p className="quiet-line">Notes will appear as you talk.</p>
       ) : (
-        <ul className="reminder-list">
-          {open.map((item) => (
-            <li key={item.id}>
-              <p>{item.text}</p>
-              {item.who ? <p className="meta">From {item.who}</p> : null}
-              <button className="secondary" type="button" onClick={() => onDone(item.personId, item.id)}>
-                Done
-              </button>
+        <ul className="notepad-lines">
+          {lines.map((line) => (
+            <li key={line.key}>
+              {line.who ? <span className="who">{line.who}</span> : null}
+              <span>{line.text}</span>
             </li>
           ))}
         </ul>

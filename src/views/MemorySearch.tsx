@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { searchMemories } from "../../shared/memorySearch.mjs";
 import { askMemories } from "../listen/ask";
@@ -13,6 +13,118 @@ type MemorySearchProps = {
 
 function joinQuestion(prefix: string, spoken: string): string {
   return `${prefix} ${spoken}`.replace(/\s+/g, " ").trim().slice(0, 300);
+}
+
+function questionFromFact(text: string, who: string): string {
+  const fact = text.replace(/\s+/g, " ").trim().replace(/[.?!]+$/, "");
+  if (!fact) return "";
+  const lower = fact.toLowerCase();
+
+  const named = lower.match(/^(?:has|have|had)\s+(?:a|an|the)\s+([a-z]+(?:\s+[a-z]+)?)\s+named\s+/);
+  if (named) {
+    const thing = named[1];
+    const possessive = thing.endsWith("s") ? `${thing}'` : `${thing}'s`;
+    return `What is the ${possessive} name?`;
+  }
+  if (/^(?:likes|loves|enjoys)\b/.test(lower)) return `What does ${who} like?`;
+  if (/^visits?\b/.test(lower)) return `When does ${who} visit?`;
+  if (/^lives?\b/.test(lower)) return `Where does ${who} live?`;
+  if (/^(?:works|worked)\b/.test(lower)) return `Where does ${who} work?`;
+  if (/^brings?\b/.test(lower)) return `What does ${who} bring?`;
+
+  const about = fact.match(/^(?:asked|talked|spoke)\s+about\s+(.+)$/i);
+  if (about) {
+    const topic = about[1].split(/\s+/).slice(0, 4).join(" ");
+    return `What about ${topic}?`;
+  }
+
+  const topic = fact
+    .replace(
+      /^(?:has|have|had|is|are|was|were|likes|loves|enjoys|plays|play|visits|visit|brings|bring|works|worked|lives|live|goes|went|wants|wanted)\s+/i,
+      "",
+    )
+    .replace(/^(?:a|an|the|to|on|in|at|for|about)\s+/i, "")
+    .replace(/^(?:a|an|the)\s+/i, "")
+    .split(/\s+/)
+    .slice(0, 3)
+    .join(" ");
+  if (!topic) return "";
+  return `What about ${topic}?`;
+}
+
+function questionFromReminder(text: string): string {
+  const words = text.replace(/[.?!]+$/, "").trim().split(/\s+/).filter(Boolean).slice(0, 6);
+  if (words.length === 0) return "";
+  const phrase = words.join(" ");
+  return `${phrase.charAt(0).toUpperCase()}${phrase.slice(1)}?`;
+}
+
+function suggestionsFor(person: Person | null): string[] {
+  if (!person) return [];
+  const name = person.name?.replace(/\s+/g, " ").trim() || "";
+  const who = name || "they";
+  const questions: string[] = [];
+  const seen = new Set<string>();
+  const add = (question: string) => {
+    const cleaned = question.replace(/\s+/g, " ").trim();
+    const key = cleaned.toLowerCase();
+    if (cleaned.length < 3 || seen.has(key)) return;
+    seen.add(key);
+    questions.push(cleaned);
+  };
+
+  for (const fact of [...person.facts].reverse()) add(questionFromFact(fact.text, who));
+  if (person.relationship) add(name ? `How is ${name} related?` : "How are we related?");
+  for (const reminder of [...(person.reminders ?? [])].reverse()) {
+    if (!reminder.done) add(questionFromReminder(reminder.text));
+  }
+  return questions;
+}
+
+function SuggestionRow({ items, onPick }: { items: string[]; onPick: (text: string) => void }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(items.length);
+  const key = items.join("\n");
+
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+
+    const measure = () => {
+      const buttons = [...row.querySelectorAll("button")];
+      for (const button of buttons) button.hidden = false;
+      const styles = getComputedStyle(row);
+      const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
+      const width = row.clientWidth;
+      let used = 0;
+      let fit = 0;
+      for (const button of buttons) {
+        const next = used + button.offsetWidth + (fit > 0 ? gap : 0);
+        if (next > width + 1) break;
+        used = next;
+        fit += 1;
+      }
+      buttons.forEach((button, index) => {
+        button.hidden = index >= fit;
+      });
+      setVisible(fit);
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [key]);
+
+  return (
+    <div className="suggestions" ref={rowRef} role="group" aria-label="Suggested questions">
+      {items.map((text, index) => (
+        <button className="suggestion" type="button" key={text} hidden={index >= visible} onClick={() => onPick(text)}>
+          {text}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 type Line = { who: string; text: string; kind: "fact" | "said" | "relationship" };
@@ -47,6 +159,7 @@ export function MemorySearch({ person, onListenHold, onVoiceError }: MemorySearc
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const sessionRef = useRef<{ stop: () => void } | null>(null);
   const waitRef = useRef(0);
   const holdRef = useRef(onListenHold);
@@ -96,11 +209,18 @@ export function MemorySearch({ person, onListenHold, onVoiceError }: MemorySearc
   }
 
   const title = person?.name ? `Search ${person.name}` : "Search memories";
+  const suggestions = suggestionsFor(person);
+
+  function useSuggestion(text: string) {
+    setQuestion(text);
+    inputRef.current?.focus();
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     const asked = question.replace(/\s+/g, " ").trim();
     if (asked.length < 2 || busy) return;
+    setQuestion("");
     setOpen(true);
     if (!person) {
       setHits([]);
@@ -150,27 +270,33 @@ export function MemorySearch({ person, onListenHold, onVoiceError }: MemorySearc
 
   return (
     <>
-      <form className="search-bar" onSubmit={onSubmit}>
-        <input
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          placeholder={person?.name ? `Ask about ${person.name}` : "Ask about this person"}
-          aria-label="Question"
-          maxLength={300}
-        />
-        <button
-          className={listening ? "search-voice live" : "search-voice"}
-          type="button"
-          aria-pressed={listening}
-          aria-label={listening ? "Stop voice input" : "Ask with your voice"}
-          onClick={listening ? stopVoice : startVoice}
-        >
-          <MicIcon />
-        </button>
-        <button className="search-send" type="submit" disabled={busy} aria-label={busy ? "Sending" : "Send"}>
-          <SendIcon />
-        </button>
-      </form>
+      <div className="search-stack">
+        {suggestions.length > 0 ? (
+          <SuggestionRow items={suggestions} onPick={useSuggestion} />
+        ) : null}
+        <form className="search-bar" onSubmit={onSubmit}>
+          <input
+            ref={inputRef}
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            placeholder={person?.name ? `Ask about ${person.name}` : "Ask about this person"}
+            aria-label="Question"
+            maxLength={300}
+          />
+          <button
+            className={listening ? "search-voice live" : "search-voice"}
+            type="button"
+            aria-pressed={listening}
+            aria-label={listening ? "Stop voice input" : "Ask with your voice"}
+            onClick={listening ? stopVoice : startVoice}
+          >
+            <MicIcon />
+          </button>
+          <button className="search-send" type="submit" disabled={busy} aria-label={busy ? "Sending" : "Send"}>
+            <SendIcon />
+          </button>
+        </form>
+      </div>
       {open
         ? createPortal(
             <aside className="memory-search" aria-label={title}>
