@@ -13,7 +13,7 @@ npm install
 cp .env.example .env
 ```
 
-Put your Anthropic API key in `.env`:
+Put your API key in `.env` (Project is set to use an Anthropic API Key):
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
