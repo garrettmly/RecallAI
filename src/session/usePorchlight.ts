@@ -685,6 +685,30 @@ export function usePorchlight(
     reportSpeechError: (message: string | null) => setSpeechError(message),
     showVisit: () => setView("visit"),
     showMemories: () => setView("memories"),
+    addNote: (personId: string, text: string) => {
+      const person = peopleRef.current.find((item) => item.id === personId);
+      const note = text.replace(/\s+/g, " ").trim().slice(0, 140);
+      if (!person || note.length === 0) return;
+      const key = note.toLowerCase();
+      if (person.facts.some((fact) => fact.text.toLowerCase() === key)) return;
+      const now = Date.now();
+      commitPerson({
+        ...person,
+        facts: [...person.facts, { id: crypto.randomUUID(), text: note, at: now }],
+        updatedAt: now,
+      });
+    },
+    removeNote: (personId: string, text: string) => {
+      const person = peopleRef.current.find((item) => item.id === personId);
+      if (!person) return;
+      const key = text.replace(/\s+/g, " ").trim().toLowerCase();
+      commitPerson({
+        ...person,
+        facts: person.facts.filter((fact) => fact.text.toLowerCase() !== key),
+        reminders: (person.reminders ?? []).filter((item) => item.text.toLowerCase() !== key),
+        updatedAt: Date.now(),
+      });
+    },
     finishReminder: (personId: string, reminderId: string) => {
       const person = peopleRef.current.find((item) => item.id === personId);
       if (!person) return;
