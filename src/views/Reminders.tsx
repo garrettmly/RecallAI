@@ -1,7 +1,9 @@
+import { useState, type FormEvent } from "react";
 import type { Person } from "../types";
 
 type NoteLine = {
   key: string;
+  personId: string;
   text: string;
   at: number;
   who: string | null;
@@ -12,10 +14,10 @@ function linesFrom(people: Person[]): NoteLine[] {
   for (const person of people) {
     const who = person.name;
     for (const fact of person.facts) {
-      lines.push({ key: fact.id, text: fact.text, at: fact.at, who });
+      lines.push({ key: fact.id, personId: person.id, text: fact.text, at: fact.at, who });
     }
     for (const reminder of person.reminders ?? []) {
-      lines.push({ key: reminder.id, text: reminder.text, at: reminder.at, who });
+      lines.push({ key: reminder.id, personId: person.id, text: reminder.text, at: reminder.at, who });
     }
   }
   const seen = new Set<string>();
@@ -30,8 +32,28 @@ function linesFrom(people: Person[]): NoteLine[] {
     .slice(-12);
 }
 
-export function Reminders({ people }: { people: Person[] }) {
+export function Reminders({
+  people,
+  personId,
+  onAdd,
+  onDelete,
+}: {
+  people: Person[];
+  personId: string | null;
+  onAdd: (personId: string, text: string) => void;
+  onDelete: (personId: string, text: string) => void;
+}) {
+  const [draft, setDraft] = useState("");
   const lines = linesFrom(people);
+  const canAdd = Boolean(personId);
+
+  function addNote(event: FormEvent) {
+    event.preventDefault();
+    const text = draft.replace(/\s+/g, " ").trim();
+    if (!personId || text.length === 0) return;
+    onAdd(personId, text);
+    setDraft("");
+  }
 
   return (
     <aside className="notepad" aria-label="Notes">
@@ -42,12 +64,36 @@ export function Reminders({ people }: { people: Person[] }) {
         <ul className="notepad-lines">
           {lines.map((line) => (
             <li key={line.key}>
-              {line.who ? <span className="who">{line.who}</span> : null}
-              <span>{line.text}</span>
+              <div>
+                {line.who ? <span className="who">{line.who}</span> : null}
+                <span>{line.text}</span>
+              </div>
+              <button
+                className="notepad-delete"
+                type="button"
+                aria-label={`Delete note: ${line.text}`}
+                onClick={() => onDelete(line.personId, line.text)}
+              >
+                ×
+              </button>
             </li>
           ))}
         </ul>
       )}
+      <form className="notepad-add" onSubmit={addNote}>
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Add a note"
+          title={canAdd ? "Add a note" : "Someone needs to be recognized first"}
+          aria-label="New note"
+          maxLength={140}
+          disabled={!canAdd}
+        />
+        <button type="submit" disabled={!canAdd || draft.trim().length === 0} aria-label="Add note">
+          Add
+        </button>
+      </form>
     </aside>
   );
 }

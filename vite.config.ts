@@ -65,6 +65,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), memoryApi(env), mediapipeWasm()],
     server: { port: 5173, strictPort: true },
+    worker: { format: "es" },
     optimizeDeps: { include: ["@vladmandic/face-api"] },
   };
 });

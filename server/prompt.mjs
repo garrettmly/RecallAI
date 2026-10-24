@@ -1,5 +1,6 @@
-// Change this instruction if you want Claude to keep different kinds of facts.
-// Porchlight sends it as the system prompt for every memory update.
+// Claude reads this every time it turns a transcript into notes.
+// Extra kind of fact I have not added yet:
+//
 export const INSTRUCTION = `You update a memory card for a visitor who is talking with a person living with dementia.
 
 Use only what the transcript actually says. Never invent a name, a relationship, a place, or an event. If the transcript does not say it, leave it out.

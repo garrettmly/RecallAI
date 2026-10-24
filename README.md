@@ -27,25 +27,25 @@ npm run dev
 
 ## How a face becomes a memory
 
-Face matching runs in the browser with [face-api](https://github.com/vladmandic/face-api) (MIT). A detected face becomes a list of numbers called a descriptor. Porchlight compares that list with descriptors already saved in IndexedDB. The comparison is Euclidean distance: smaller means more alike.
+I match faces in the browser with [face-api](https://github.com/vladmandic/face-api) (MIT). A face becomes a list of numbers, a descriptor. I compare that list to the ones already in IndexedDB. The comparison is Euclidean distance. Smaller means the faces are more alike.
 
-Two numbers in [`src/vision/thresholds.ts`](src/vision/thresholds.ts) decide what happens:
+The cutoffs are in [`src/vision/thresholds.ts`](src/vision/thresholds.ts):
 
-- `MATCH_DISTANCE` — at or below this, the screen uses that person’s name.
-- `MAYBE_DISTANCE` — between the two numbers, the screen says “This might be.”
-- Above `MAYBE_DISTANCE`, the face is treated as someone new.
+- `MATCH_DISTANCE` — at or below this, I use that person's name.
+- `MAYBE_DISTANCE` — between the two numbers, the screen says this might be them.
+- Above `MAYBE_DISTANCE`, I treat the face as someone new.
 
-A new memory opens only when a face stays steady for about a second and a half and someone is talking. Walking past the camera without speaking does not create a person. If two faces are in frame, the larger one is used.
+I only open a new memory if the face stays still for about a second and a half and someone is talking. Walking past the camera does not create a person. If two faces are in the picture, I use the bigger one.
 
-Change `MATCH_DISTANCE` if the app mixes two people up, or fails to recognize someone it has already met. Lower is stricter.
+If the app mixes two people up, I lower `MATCH_DISTANCE`. Lower is stricter.
 
 ## How a conversation becomes notes
 
-Chrome’s speech recognition turns the microphone into text. In Chrome, that audio is sent to Chrome’s speech service. Porchlight does not save the audio.
+Chrome turns the microphone into text. In Chrome, that audio goes to Chrome's speech service. I do not save the audio.
 
-After a pause in speech, the new text goes to `POST /api/extract`. The server calls the AI model (`claude-haiku-5-5` unless `ANTHROPIC_MODEL` is set or a different model provider is used) with the instruction in [`server/prompt.mjs`](server/prompt.mjs). That file is the place to change what counts as worth remembering. The AI model is told to leave a field empty when the conversation did not say it.
+After a pause, the new text goes to `POST /api/extract`. The server asks Claude (`claude-haiku-5-5` unless `ANTHROPIC_MODEL` is set) with the instruction in [`server/prompt.mjs`](server/prompt.mjs). That is the file I change when I want it to remember something different. If the conversation did not say it, the field stays empty.
 
-The name, relationship, facts, a short transcript excerpt, and the face descriptors are stored in IndexedDB on this computer. **Delete everything on this computer** clears that database. **Pause** turns the camera and microphone off.
+The name, relationship, facts, a short bit of the transcript, and the face descriptors stay in IndexedDB on this computer. Delete everything clears that database. The camera and microphone buttons turn those off.
 
 ## Libraries
 
@@ -57,7 +57,7 @@ The name, relationship, facts, a short transcript excerpt, and the face descript
 
 ## Privacy
 
-Memories, including face descriptors, stay in this browser’s IndexedDB. The transcript text is sent to Anthropic so Claude can extract notes. Chrome’s speech recognition sends microphone audio to its own speech service. Say that plainly if you demo the app.
+Memories, including face descriptors, stay in this browser’s IndexedDB. The transcript text goes to Anthropic so Claude can pull out notes. Chrome’s speech recognition also sends the microphone audio to its own speech service. I say that when I demo the app.
 
 ## Checks
 
