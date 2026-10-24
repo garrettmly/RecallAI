@@ -1,8 +1,7 @@
 import { FaceDetector, FilesetResolver, type Detection } from "@mediapipe/tasks-vision";
 import type { NormBox } from "./match";
 
-// MediaPipe loads its wasm helper with importScripts. Module workers expose that
-// function, but calling it throws, so replace it with a same-origin loader.
+// MediaPipe calls importScripts for its wasm file. That throws in a module worker.
 (self as typeof self & { importScripts: (url: string) => void }).importScripts = (url: string) => {
   const request = new XMLHttpRequest();
   request.open("GET", url, false);

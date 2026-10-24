@@ -1,5 +1,4 @@
-// TensorFlow decides it is in a browser only when these page globals exist.
-// A worker has none of them, so define the ones it checks before it loads.
+// face-api looks for window and document. A worker does not have them.
 const scope = globalThis as unknown as Record<string, unknown>;
 scope.window = globalThis;
 scope.document = {
