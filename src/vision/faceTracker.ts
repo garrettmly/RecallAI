@@ -21,11 +21,10 @@ type Outbound =
   | { type: "error"; message: string }
   | { type: "box"; id: number; sentAt: number; box: NormBox | null; dropped: boolean; sample?: ImageBitmap };
 
-const DETECT_GAP_MS = 100;
+const DETECT_GAP_MS = 200;
 
 let detector: FaceDetector | null = null;
 let busy = false;
-let lastTimestamp = 0;
 let lastDetectAt = 0;
 let frameId = 0;
 let canvas: OffscreenCanvas | null = null;
@@ -33,6 +32,10 @@ let context: OffscreenCanvasRenderingContext2D | null = null;
 let reader: ReadableStreamDefaultReader<VideoFrame> | null = null;
 let stopped = false;
 let wantSample = false;
+let wasmUrl = "";
+let modelUrl = "";
+let builtAt = 0;
+let rebuilding = false;
 
 self.onmessage = (event: MessageEvent<Inbound>) => {
   const data = event.data;
@@ -58,21 +61,36 @@ self.onmessage = (event: MessageEvent<Inbound>) => {
   onBitmap(data.bitmap, data.id, data.sentAt);
 };
 
-async function start(wasmUrl: string, modelUrl: string) {
+async function start(nextWasm: string, nextModel: string) {
+  wasmUrl = nextWasm;
+  modelUrl = nextModel;
   try {
     const fileset = await FilesetResolver.forVisionTasks(wasmUrl);
-    detector = await FaceDetector.createFromOptions(fileset, {
+    const next = await FaceDetector.createFromOptions(fileset, {
       baseOptions: { modelAssetPath: modelUrl, delegate: "CPU" },
-      runningMode: "VIDEO",
+      runningMode: "IMAGE",
       minDetectionConfidence: 0.5,
     });
-    post({ type: "ready" });
+    const previous = detector;
+    detector = next;
+    builtAt = performance.now();
+    previous?.close();
+    if (!previous) post({ type: "ready" });
   } catch (error) {
+    if (detector) return;
     post({
       type: "error",
       message: error instanceof Error ? error.message : "Face detection did not start.",
     });
   }
+}
+
+function scheduleRebuild() {
+  if (rebuilding || stopped || !modelUrl || performance.now() - builtAt < 90000) return;
+  rebuilding = true;
+  void start(wasmUrl, modelUrl).finally(() => {
+    rebuilding = false;
+  });
 }
 
 async function pump() {
@@ -99,9 +117,7 @@ async function pump() {
     let sample: ImageBitmap | null = null;
     try {
       const painted = paint(frame);
-      const timestamp = Math.max(Math.round(frame.timestamp / 1000), lastTimestamp + 1);
-      lastTimestamp = timestamp;
-      const result = detector.detectForVideo(painted, timestamp);
+      const result = detector.detect(painted);
       box = largestBox(result.detections, painted.width, painted.height);
       if (wantSample && box) {
         sample = painted.transferToImageBitmap();
@@ -129,9 +145,7 @@ function onBitmap(bitmap: ImageBitmap, id: number, sentAt: number) {
   let sample: ImageBitmap | null = null;
   try {
     const painted = paint(bitmap);
-    const timestamp = Math.max(sentAt, lastTimestamp + 1);
-    lastTimestamp = timestamp;
-    const result = detector.detectForVideo(painted, timestamp);
+    const result = detector.detect(painted);
     box = largestBox(result.detections, painted.width, painted.height);
     if (wantSample && box) {
       sample = painted.transferToImageBitmap();
@@ -145,6 +159,7 @@ function onBitmap(bitmap: ImageBitmap, id: number, sentAt: number) {
   }
   if (sample) post({ type: "box", id, sentAt, box, dropped: false, sample }, [sample]);
   else post({ type: "box", id, sentAt, box, dropped: false });
+  scheduleRebuild();
 }
 
 function sourceSize(source: VideoFrame | ImageBitmap): { width: number; height: number } {

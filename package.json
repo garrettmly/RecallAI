@@ -1,5 +1,5 @@
 {
-  "name": "porchlight",
+  "name": "recallai",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node --test server/notes.test.mjs shared/distance.test.mjs shared/memorySearch.test.mjs",
+    "test": "node --test server/notes.test.mjs server/ask.test.mjs shared/distance.test.mjs shared/memorySearch.test.mjs shared/glassesVoice.test.mjs shared/unreadSpeech.test.mjs",
     "copy-models": "node scripts/copy-models.mjs"
   },
   "dependencies": {

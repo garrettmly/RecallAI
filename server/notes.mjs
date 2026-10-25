@@ -1,3 +1,5 @@
+import { usableNote } from "../shared/memorySearch.mjs";
+
 const NAME_LIMIT = 40;
 const RELATIONSHIP_LIMIT = 60;
 const FACT_LIMIT = 140;
@@ -30,7 +32,7 @@ export function cleanFacts(value) {
   for (const item of value) {
     if (typeof item !== "string") continue;
     const text = item.replace(/\s+/g, " ").trim();
-    if (text.length < 3 || text.length > FACT_LIMIT) continue;
+    if (text.length < 3 || text.length > FACT_LIMIT || !usableNote(text)) continue;
     const key = text.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -38,6 +40,46 @@ export function cleanFacts(value) {
     if (facts.length === 6) break;
   }
   return facts;
+}
+
+const TASK =
+  /^(?:please\s+)?(?:i\s+)?(?:really\s+)?(?:need|have|has|should|must|want|wanna|gotta|got)\s+to\s+\S/i;
+const REMEMBER = /^(?:please\s+)?(?:remember|don't forget|do not forget)\s+to\s+\S/i;
+
+export function reminderLine(text, name) {
+  let line = String(text || "").replace(/\s+/g, " ").trim().replace(/[.?!]+$/, "");
+  if (!line) return "";
+  const who = String(name || "").trim() || "them";
+  const already = line.match(/^remind\s+.+?\s+to\s+(.+)$/i);
+  if (already) line = already[1];
+  else {
+    line = line.replace(
+      /^(?:please\s+)?(?:i\s+)?(?:really\s+)?(?:need|have|has|should|must|want|wanna|gotta|got)\s+to\s+/i,
+      "",
+    );
+    line = line.replace(/^(?:please\s+)?(?:remember|don't forget|do not forget)\s+to\s+/i, "");
+  }
+  line = line.trim().replace(/[.?!]+$/, "");
+  if (!line) return "";
+  return `Remind ${who} to ${line.charAt(0).toLowerCase()}${line.slice(1)}`;
+}
+
+export function taskFromLine(text, name) {
+  const line = String(text || "").replace(/\s+/g, " ").trim();
+  if (!TASK.test(line) && !REMEMBER.test(line) && !/^remind\s+\S+\s+to\s+\S/i.test(line)) return "";
+  return reminderLine(line, name);
+}
+
+export function tasksFromSpeech(transcript, name) {
+  const seen = new Set();
+  const tasks = [];
+  for (const part of String(transcript || "").split(/(?<=[.!?])\s+|\n+/)) {
+    const task = taskFromLine(part, name);
+    if (!task || seen.has(task.toLowerCase())) continue;
+    seen.add(task.toLowerCase());
+    tasks.push(task);
+  }
+  return tasks;
 }
 
 export function parseModelText(text) {

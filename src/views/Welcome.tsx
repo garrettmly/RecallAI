@@ -5,7 +5,7 @@ type WelcomeProps = {
 export function Welcome({ onStart }: WelcomeProps) {
   return (
     <main className="welcome">
-      <p className="eyebrow">Porchlight</p>
+      <p className="eyebrow">Recall AI</p>
       <h1>When someone sits with you, this screen learns who they are.</h1>
       <p className="lede">
         There is no profile to fill out. The camera watches the visitor. The microphone

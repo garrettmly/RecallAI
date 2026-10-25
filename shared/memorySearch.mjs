@@ -32,6 +32,18 @@ function isRelevant(memory, needed) {
   return coverage >= 0.5 || matched >= 2;
 }
 
+const DANGLING =
+  /(?:^|\s)(?:from|to|and|because|but|or|the|a|an|my|of|with|for|was|able|into|about)$/i;
+
+export function usableNote(text) {
+  const line = String(text || "").replace(/\s+/g, " ").trim();
+  if (line.length < 3 || line.length > 140) return false;
+  if (line.split(/\s+/).length < 2) return false;
+  if (/\btranscript\b|\bcuts?\s+off\b|\bincomplete\b/i.test(line)) return false;
+  if (DANGLING.test(line)) return false;
+  return true;
+}
+
 export function searchMemories(question, memories) {
   const needed = words(question);
   return memories

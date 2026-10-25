@@ -152,11 +152,19 @@ export function stepLabel(
     motion.measuredAt = now;
   }
 
-  let desiredLeft = Math.min(
-    window.innerWidth - motion.labelWidth - 16,
-    Math.max(16, window.innerWidth * 0.56),
-  );
-  let desiredTop = Math.max(88, window.innerHeight * 0.22);
+  if (!motion.layout || now - motion.layoutAt > 300) {
+    const rect = video.getBoundingClientRect();
+    motion.layout = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+    motion.layoutAt = now;
+  }
+  const bounds = motion.layout;
+  const inGlasses = bounds.width < window.innerWidth - 24 || bounds.height < window.innerHeight - 24;
+  const edge = inGlasses ? 12 : 16;
+
+  let desiredLeft = inGlasses
+    ? bounds.left + bounds.width * 0.56
+    : Math.min(window.innerWidth - motion.labelWidth - 16, Math.max(16, window.innerWidth * 0.56));
+  let desiredTop = inGlasses ? bounds.top + bounds.height * 0.18 : Math.max(88, window.innerHeight * 0.22);
 
   const predicted = video.videoWidth > 0 && video.videoHeight > 0 ? faceNow(motion) : null;
   if (predicted) {
@@ -164,16 +172,23 @@ export function stepLabel(
     const gap = 18;
     const right = face.x + face.width + gap;
     const leftSide = face.x - gap - motion.labelWidth;
-    const fitsRight = right + motion.labelWidth <= window.innerWidth - 16;
-    const fitsLeft = leftSide >= 16;
+    const limitRight = inGlasses ? bounds.left + bounds.width - edge : window.innerWidth - 16;
+    const limitLeft = inGlasses ? bounds.left + edge : 16;
+    const fitsRight = right + motion.labelWidth <= limitRight;
+    const fitsLeft = leftSide >= limitLeft;
     if (motion.side === "right" && !fitsRight && fitsLeft) motion.side = "left";
     if (motion.side === "left" && !fitsLeft && fitsRight) motion.side = "right";
     desiredLeft = motion.side === "right" ? right : leftSide;
     desiredTop = face.y + face.height * 0.08;
   }
 
-  desiredLeft = Math.max(16, Math.min(desiredLeft, window.innerWidth - motion.labelWidth - 16));
-  desiredTop = Math.max(72, Math.min(desiredTop, window.innerHeight - motion.labelHeight - 16));
+  if (inGlasses) {
+    desiredLeft = Math.max(bounds.left + edge, Math.min(desiredLeft, bounds.left + bounds.width - motion.labelWidth - edge));
+    desiredTop = Math.max(bounds.top + edge, Math.min(desiredTop, bounds.top + bounds.height - motion.labelHeight - edge));
+  } else {
+    desiredLeft = Math.max(16, Math.min(desiredLeft, window.innerWidth - motion.labelWidth - 16));
+    desiredTop = Math.max(72, Math.min(desiredTop, window.innerHeight - motion.labelHeight - 16));
+  }
   if (!Number.isFinite(desiredLeft) || !Number.isFinite(desiredTop)) return;
 
   if (motion.left === null || motion.top === null) {

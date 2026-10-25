@@ -15,6 +15,7 @@ let models: Promise<void> | null = null;
 const tf = faceapi.tf as typeof faceapi.tf & {
   setBackend(name: string): Promise<boolean>;
   ready(): Promise<void>;
+  engine(): { startScope(): void; endScope(): void };
 };
 
 function post(message: Outbound, transfer?: Transferable[]) {
@@ -50,27 +51,24 @@ function loadModels(modelUrl: string): Promise<void> {
 }
 
 async function recognize(bitmap: ImageBitmap) {
-  let tensor: faceapi.tf.Tensor3D | null = null;
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
+  let tensor: ReturnType<typeof tf.browser.fromPixels> | null = null;
+  tf.engine().startScope();
   try {
     tensor = tf.browser.fromPixels(bitmap);
-    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
-    const faces = await faceapi.detectAllFaces(tensor, options).withFaceLandmarks().withFaceDescriptors();
-    if (faces.length === 0) {
+    const face = await faceapi.detectSingleFace(tensor, options).withFaceLandmarks().withFaceDescriptor();
+    if (!face) {
       post({ type: "descriptor", descriptor: null });
       return;
     }
-    const largest = faces.reduce((best, face) => {
-      const area = face.detection.box.width * face.detection.box.height;
-      const bestArea = best.detection.box.width * best.detection.box.height;
-      return area > bestArea ? face : best;
-    });
-    const copy = new Float32Array(largest.descriptor);
+    const copy = new Float32Array(face.descriptor);
     post({ type: "descriptor", descriptor: copy }, [copy.buffer]);
   } catch {
     post({ type: "descriptor", descriptor: null });
   } finally {
     bitmap.close();
-    tensor?.dispose();
+    tf.engine().endScope();
+    tensor = null;
   }
 }
 

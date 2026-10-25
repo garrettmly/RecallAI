@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from "react";
+import { reminderLine } from "../../server/notes.mjs";
+import { usableNote } from "../../shared/memorySearch.mjs";
 import type { Person } from "../types";
 
 type NoteLine = {
   key: string;
   personId: string;
   text: string;
+  raw: string;
   at: number;
   who: string | null;
 };
@@ -13,11 +16,10 @@ function linesFrom(people: Person[]): NoteLine[] {
   const lines: NoteLine[] = [];
   for (const person of people) {
     const who = person.name;
-    for (const fact of person.facts) {
-      lines.push({ key: fact.id, personId: person.id, text: fact.text, at: fact.at, who });
-    }
     for (const reminder of person.reminders ?? []) {
-      lines.push({ key: reminder.id, personId: person.id, text: reminder.text, at: reminder.at, who });
+      const text = reminderLine(reminder.text, who);
+      if (!usableNote(text)) continue;
+      lines.push({ key: reminder.id, personId: person.id, text, raw: reminder.text, at: reminder.at, who });
     }
   }
   const seen = new Set<string>();
@@ -59,7 +61,7 @@ export function Reminders({
     <aside className="notepad" aria-label="Notes">
       <h2>Notes</h2>
       {lines.length === 0 ? (
-        <p className="quiet-line">Notes will appear as you talk.</p>
+        <p className="quiet-line">Things to do show up here from the conversation.</p>
       ) : (
         <ul className="notepad-lines">
           {lines.map((line) => (
@@ -72,7 +74,7 @@ export function Reminders({
                 className="notepad-delete"
                 type="button"
                 aria-label={`Delete note: ${line.text}`}
-                onClick={() => onDelete(line.personId, line.text)}
+                onClick={() => onDelete(line.personId, line.raw)}
               >
                 ×
               </button>

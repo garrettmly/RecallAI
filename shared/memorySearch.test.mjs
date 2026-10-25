@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { searchMemories } from "./memorySearch.mjs";
+import { searchMemories, usableNote } from "./memorySearch.mjs";
 
 test("ranks a memory that shares the question's words", () => {
   const hits = searchMemories("what is the dog's name", [
@@ -21,6 +21,12 @@ test("leaves out spoken chatter that only mentions the topic in passing", () => 
     { who: "Mateo", kind: "fact", text: "has a dog named Pepper" },
   ]);
   assert.deepEqual(hits.map((hit) => hit.text), ["has a dog named Pepper"]);
+});
+
+test("keeps a finished note and drops one that stops halfway", () => {
+  assert.equal(usableNote("saw some family yesterday"), true);
+  assert.equal(usableNote("it was fun because I was able to see my friend from"), false);
+  assert.equal(usableNote("the transcript cuts off before saying where"), false);
 });
 
 test("returns nothing when no memory shares a word", () => {

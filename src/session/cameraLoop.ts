@@ -1,9 +1,8 @@
 import type { RefObject } from "react";
-import { openDetectorStream } from "../vision/capture";
 import type { NormBox } from "../vision/match";
 import { clearFace, createLabelMotion, noteFace, stepLabel } from "../vision/placeLabel";
 
-const DETECT_GAP_MS = 90;
+const DETECT_GAP_MS = 400;
 const LABEL_HOLD_MS = 1200;
 const CARD_HOLD_MS = 4000;
 
@@ -32,7 +31,7 @@ export function startVisitCamera(input: {
   setStatus: (status: string | null) => void;
   setReady: (ready: boolean) => void;
   setPhase: (phase: "paused") => void;
-  setPerf: (perf: PorchlightPerf | null) => void;
+  setPerf: (perf: RecallAIPerf | null) => void;
   showPerson: (id: string | null, uncertain: boolean) => void;
 }): () => void {
   const {
@@ -50,6 +49,10 @@ export function startVisitCamera(input: {
   } = input;
 
   let stopped = false;
+  let notesShiftX = 0;
+  let notesShiftY = 0;
+  let nameShiftX = 0;
+  let nameShiftY = 0;
   let publishTimer = 0;
   let paintFrame = 0;
   let videoFrameId = 0;
@@ -61,8 +64,6 @@ export function startVisitCamera(input: {
   let lastRecognizeAt = 0;
   let frameId = 0;
   let sampleAsked = false;
-  let detectStop = () => {};
-  let hidden: HTMLVideoElement | null = null;
   let sampleTimer = 0;
   const motion = createLabelMotion();
   const stats = {
@@ -80,12 +81,38 @@ export function startVisitCamera(input: {
     label.style.opacity = "0";
   };
 
+  let glassesOn = false;
+  let glassesChecked = 0;
+  let notesSlot: HTMLElement | null = null;
+  let nameSlot: HTMLElement | null = null;
+
   const paint = (now: number) => {
     if (stopped) return;
     paintFrame = window.requestAnimationFrame(paint);
     const label = labelRef.current;
     if (!label || document.hidden || viewRef.current !== "visit") {
       hideLabel();
+      return;
+    }
+    if (now - glassesChecked > 500) {
+      glassesChecked = now;
+      glassesOn = Boolean(document.querySelector(".app.glasses"));
+      const slots = glassesOn ? document.querySelectorAll(".glasses-slot") : [];
+      notesSlot = (slots[0] as HTMLElement | undefined) ?? null;
+      nameSlot = (slots[1] as HTMLElement | undefined) ?? null;
+    }
+    if (glassesOn) {
+      label.style.opacity = "1";
+      label.style.transform = "";
+      const faceX = motion.x?.hat ?? 0.5;
+      const faceY = motion.y?.hat ?? 0.35;
+      const settle = 0.08;
+      notesShiftX += (Math.max(-42, Math.min(42, (0.35 - faceX) * 90)) - notesShiftX) * settle;
+      notesShiftY += (Math.max(-28, Math.min(72, (faceY - 0.28) * 120)) - notesShiftY) * settle;
+      nameShiftX += (Math.max(-42, Math.min(42, (faceX - 0.65) * 90)) - nameShiftX) * settle;
+      nameShiftY += (Math.max(-28, Math.min(72, (faceY - 0.28) * 120)) - nameShiftY) * settle;
+      if (notesSlot) notesSlot.style.transform = `translate3d(${Math.round(notesShiftX)}px, ${Math.round(notesShiftY)}px, 0)`;
+      if (nameSlot) nameSlot.style.transform = `translate3d(${Math.round(nameShiftX)}px, ${Math.round(nameShiftY)}px, 0)`;
       return;
     }
     stepLabel(video, label, motion, now);
@@ -97,7 +124,7 @@ export function startVisitCamera(input: {
       if (!entranceAtRef.current) entranceAtRef.current = performance.now();
       noteFace(motion, box, sentAt);
       const confident = Boolean(activeIdRef.current && !uncertainRef.current);
-      const gap = uncertainRef.current ? 1200 : 900;
+      const gap = uncertainRef.current ? 2500 : 1800;
       if (!confident && !recognizingRef.current && !sampleAsked && performance.now() - lastRecognizeAt >= gap) {
         sampleAsked = true;
         worker?.postMessage({ type: "sample" });
@@ -132,6 +159,31 @@ export function startVisitCamera(input: {
     timingRef.current.cameraReadyMs = Math.round(performance.now() - cameraStarted);
   };
 
+  const sendFrame = () => {
+    if (stopped || !worker || video.readyState < 2 || video.videoWidth === 0) return;
+    if (inflight) {
+      stats.skipped += 1;
+      return;
+    }
+    inflight = true;
+    const id = ++frameId;
+    const sentAt = Date.now();
+    const width = 320;
+    const height = Math.max(1, Math.round((video.videoHeight / video.videoWidth) * width));
+    createImageBitmap(video, { resizeWidth: width, resizeHeight: height, resizeQuality: "low" })
+      .then((bitmap) => {
+        if (stopped || !worker) {
+          bitmap.close();
+          inflight = false;
+          return;
+        }
+        worker.postMessage({ type: "frame", bitmap, id, sentAt }, [bitmap]);
+      })
+      .catch(() => {
+        inflight = false;
+      });
+  };
+
   const onVideoFrame = () => {
     if (stopped) return;
     markCameraReady();
@@ -144,7 +196,7 @@ export function startVisitCamera(input: {
     const avg = samples.length ? samples.reduce((sum, value) => sum + value, 0) / samples.length : 0;
     const sorted = [...samples].sort((a, b) => a - b);
     const p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] : 0;
-    const snapshot: PorchlightPerf = {
+    const snapshot: RecallAIPerf = {
       previewFps: stats.preview,
       detectFps: stats.detects,
       detectMsAvg: Math.round(avg),
@@ -162,7 +214,7 @@ export function startVisitCamera(input: {
       longTaskCount: stats.longCount,
       longTaskMs: Math.round(stats.longMs),
     };
-    window.__porchlightPerf = snapshot;
+    window.__recallAIPerf = snapshot;
     if (new URLSearchParams(window.location.search).has("perf")) input.setPerf(snapshot);
     stats.preview = 0;
     stats.detects = 0;
@@ -191,10 +243,11 @@ export function startVisitCamera(input: {
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         video: {
+          // 720p plus a second copy for detection dropped the preview under 30 fps.
           facingMode: "user",
-          width: { ideal: 1280, max: 1280 },
-          height: { ideal: 720, max: 720 },
-          frameRate: { ideal: 30, max: 30 },
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 30 },
         },
         audio: false,
       });
@@ -243,57 +296,12 @@ export function startVisitCamera(input: {
         if (stats.latencies.length > 40) stats.latencies.shift();
         applyBox(data.box ?? null, data.sentAt);
       };
-      const opened = track ? openDetectorStream(track) : null;
-      if (opened) {
-        detectStop = opened.stop;
-        worker.postMessage(
-          {
-            type: "init",
-            frames: opened.frames,
-            wasmUrl: `${location.origin}/mediapipe`,
-            modelUrl: `${location.origin}/models/blaze_face_short_range.tflite`,
-          },
-          [opened.frames],
-        );
-      } else {
-        worker.postMessage({
-          type: "init",
-          wasmUrl: `${location.origin}/mediapipe`,
-          modelUrl: `${location.origin}/models/blaze_face_short_range.tflite`,
-        });
-        if (track) {
-          const clone = track.clone();
-          detectStop = () => clone.stop();
-          hidden = document.createElement("video");
-          hidden.muted = true;
-          hidden.playsInline = true;
-          hidden.srcObject = new MediaStream([clone]);
-          await hidden.play().catch(() => {});
-          sampleTimer = window.setInterval(() => {
-            if (stopped || !worker || !hidden || hidden.readyState < 2 || hidden.videoWidth === 0 || inflight) {
-              if (inflight) stats.skipped += 1;
-              return;
-            }
-            const width = 320;
-            const height = Math.max(1, Math.round((hidden.videoHeight / hidden.videoWidth) * width));
-            inflight = true;
-            const id = ++frameId;
-            const sentAt = Date.now();
-            createImageBitmap(hidden, { resizeWidth: width, resizeHeight: height, resizeQuality: "low" })
-              .then((bitmap) => {
-                if (stopped || !worker) {
-                  bitmap.close();
-                  inflight = false;
-                  return;
-                }
-                worker.postMessage({ type: "frame", bitmap, id, sentAt }, [bitmap]);
-              })
-              .catch(() => {
-                inflight = false;
-              });
-          }, DETECT_GAP_MS);
-        }
-      }
+      worker.postMessage({
+        type: "init",
+        wasmUrl: `${location.origin}/mediapipe`,
+        modelUrl: `${location.origin}/models/blaze_face_short_range.tflite`,
+      });
+      sampleTimer = window.setInterval(sendFrame, DETECT_GAP_MS);
       input.setReady(true);
       input.setStatus(null);
     } catch (error) {
@@ -317,11 +325,6 @@ export function startVisitCamera(input: {
     longTasks.disconnect();
     hideLabel();
     window.clearInterval(sampleTimer);
-    detectStop();
-    if (hidden) {
-      hidden.pause();
-      hidden.srcObject = null;
-    }
     worker?.postMessage({ type: "stop" });
     worker?.terminate();
     stream?.getTracks().forEach((track) => track.stop());

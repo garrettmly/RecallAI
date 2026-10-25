@@ -1,6 +1,6 @@
-# Porchlight agent guide
+# Recall AI agent guide
 
-Porchlight is a laptop web app for a household supporting someone with dementia. A visitor sits down, the camera matches their face, and the microphone turns the conversation into a name, a relationship, facts, and reminders. Nobody creates a profile first.
+Recall AI is a laptop web app for a household supporting someone with dementia. A visitor sits down, the camera matches their face, and the microphone turns the conversation into a name, a relationship, facts, and reminders. Nobody creates a profile first.
 
 Read `README.md` for the demo story. This file is how to change the code without breaking that story.
 
@@ -23,9 +23,9 @@ npm run copy-models    # refresh face-api weights in public/models
 
 | Path | Role |
 | --- | --- |
-| `src/session/usePorchlight.ts` | Session: camera, mic, matching, notes, views |
+| `src/session/useRecallAI.ts` | Session: camera, mic, matching, notes, views |
 | `src/views/` | Screens. Keep them presentational. |
-| `src/db/book.ts` | IndexedDB database `porchlight`, store `people` |
+| `src/db/book.ts` | IndexedDB database `recallai`, store `people` |
 | `src/listen/speech.ts` | Chrome Web Speech API |
 | `src/listen/extract.ts` | Client for `POST /api/extract` |
 | `src/listen/ask.ts` | Client for `POST /api/ask` |
@@ -60,7 +60,7 @@ The Vite server loads `.env` and calls Anthropic. The browser must never receive
 - How model text becomes a card: `server/notes.mjs`, with a case in `server/notes.test.mjs`.
 - Who counts as the same person: `src/vision/thresholds.ts` and `shared/distance.mjs`.
 - Spoken questions about saved notes: `server/ask.mjs` and `shared/memorySearch.mjs`.
-- What the household sees: `src/views/` and `src/styles.css`. Session wiring stays in `usePorchlight`.
+- What the household sees: `src/views/` and `src/styles.css`. Session wiring stays in `useRecallAI`.
 
 Person records are `Person` in `src/types.ts`: `name`, `relationship`, `facts`, `reminders`, `excerpts`, and `descriptors`. New fields need a safe default in `src/db/book.ts` so older IndexedDB rows still load.
 

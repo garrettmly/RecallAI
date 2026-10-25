@@ -5,17 +5,20 @@ import type { Person } from "../types";
 import type { DetectedFace } from "../vision/match";
 import { startVisitCamera, type VisitTiming } from "./cameraLoop";
 import { updateFromFace } from "./matchFace";
+import { glassesCommand, recallUtterance } from "../../shared/glassesVoice.mjs";
+import { reminderLine } from "../../server/notes.mjs";
 import { applyNotes, shouldExtract } from "./saveTranscript";
 import { listenForVisit } from "./visitSpeech";
 
 type Phase = "welcome" | "running" | "paused";
 type View = "visit" | "memories";
 
-export type VisitPerf = PorchlightPerf;
+export type VisitPerf = RecallAIPerf;
 
-export function usePorchlight(
+export function useRecallAI(
   videoRef: RefObject<HTMLVideoElement | null>,
   labelRef: RefObject<HTMLElement | null>,
+  spokenRef?: RefObject<((text: string) => boolean) | null>,
 ) {
   const [phase, setPhase] = useState<Phase>("welcome");
   const [cameraOn, setCameraOn] = useState(true);
@@ -25,7 +28,6 @@ export function usePorchlight(
   const [people, setPeople] = useState<Person[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [uncertain, setUncertain] = useState(false);
-  const [hearing, setHearing] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [extractError, setExtractError] = useState<string | null>(null);
@@ -37,11 +39,11 @@ export function usePorchlight(
   const peopleRef = useRef<Person[]>([]);
   const activeIdRef = useRef<string | null>(null);
   const pendingRef = useRef("");
+  const liveRef = useRef("");
   const lastSpeechAtRef = useRef(0);
   const lastExtractAtRef = useRef(0);
   const lastFaceAtRef = useRef(0);
   const extractingRef = useRef(false);
-  const hearingRef = useRef("");
   const timingRef = useRef<VisitTiming>({
     cameraReadyMs: null as number | null,
     modelMs: null as number | null,
@@ -65,42 +67,9 @@ export function usePorchlight(
   const handleFaceRef = useRef<(face: DetectedFace | null) => void>(() => {});
   const flushRef = useRef<() => Promise<void>>(async () => {});
 
-  function showSpeech(text: string) {
-    if (hearingRef.current === text) return;
-    hearingRef.current = text;
-    setHearing(text);
-  }
-
   useEffect(() => {
     let cancel = false;
     const peopleStarted = performance.now();
-    const recognizeWorker = new Worker(new URL("../vision/recognizeWorker.ts", import.meta.url), { type: "module" });
-    recognizeWorkerRef.current = recognizeWorker;
-    recognizeWorker.onerror = (event) => {
-      (window as Window & { __faceDebug?: string }).__faceDebug = event.message;
-      if (!cancel) setStatus("Face matching did not load. The camera is still on, but people will not be recognized.");
-    };
-    recognizeWorker.onmessage = (event: MessageEvent<{ type: string; elapsed?: number; message?: string; descriptor?: Float32Array | null }>) => {
-      const data = event.data;
-      if (data.type === "ready") {
-        if (!cancel) timingRef.current.modelMs = data.elapsed ?? null;
-        return;
-      }
-      if (data.type === "error") {
-        (window as Window & { __faceDebug?: string }).__faceDebug = data.message;
-        if (!cancel) setStatus("Face matching did not load. The camera is still on, but people will not be recognized.");
-        return;
-      }
-      if (data.type !== "descriptor") return;
-      recognizingRef.current = false;
-      if (cancel || phaseRef.current !== "running" || !data.descriptor) return;
-      handleFaceRef.current({ descriptor: data.descriptor, area: 1 });
-      if (activeIdRef.current && !uncertainRef.current && entranceAtRef.current && !reportedMatchRef.current) {
-        matchMsRef.current = Math.round(performance.now() - entranceAtRef.current);
-        reportedMatchRef.current = true;
-      }
-    };
-    recognizeWorker.postMessage({ type: "init", modelUrl: `${location.origin}/models` });
     loadPeople()
       .then((rows) => {
         if (cancel) return;
@@ -121,10 +90,52 @@ export function usePorchlight(
       });
     return () => {
       cancel = true;
-      recognizeWorker.terminate();
-      recognizeWorkerRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (phase !== "running") return;
+    let cancel = false;
+    let recognizeWorker: Worker | null = null;
+    // TensorFlow and the face models peg a core. Wait until the camera is on screen.
+    const timer = window.setTimeout(() => {
+      if (cancel) return;
+      recognizeWorker = new Worker(new URL("../vision/recognizeWorker.ts", import.meta.url), { type: "module" });
+      recognizeWorkerRef.current = recognizeWorker;
+      recognizeWorker.onerror = (event) => {
+        (window as Window & { __faceDebug?: string }).__faceDebug = event.message;
+        if (!cancel) setStatus("Face matching did not load. The camera is still on, but people will not be recognized.");
+      };
+      recognizeWorker.onmessage = (event: MessageEvent<{ type: string; elapsed?: number; message?: string; descriptor?: Float32Array | null }>) => {
+        const data = event.data;
+        if (data.type === "ready") {
+          if (!cancel) timingRef.current.modelMs = data.elapsed ?? null;
+          return;
+        }
+        if (data.type === "error") {
+          (window as Window & { __faceDebug?: string }).__faceDebug = data.message;
+          if (!cancel) setStatus("Face matching did not load. The camera is still on, but people will not be recognized.");
+          return;
+        }
+        if (data.type !== "descriptor") return;
+        recognizingRef.current = false;
+        if (cancel || phaseRef.current !== "running" || !data.descriptor) return;
+        handleFaceRef.current({ descriptor: data.descriptor, area: 1 });
+        if (activeIdRef.current && !uncertainRef.current && entranceAtRef.current && !reportedMatchRef.current) {
+          matchMsRef.current = Math.round(performance.now() - entranceAtRef.current);
+          reportedMatchRef.current = true;
+        }
+      };
+      recognizeWorker.postMessage({ type: "init", modelUrl: `${location.origin}/models` });
+    }, 1500);
+    return () => {
+      cancel = true;
+      window.clearTimeout(timer);
+      recognizeWorker?.terminate();
+      if (recognizeWorkerRef.current === recognizeWorker) recognizeWorkerRef.current = null;
+      recognizingRef.current = false;
+    };
+  }, [phase]);
 
   function showPerson(id: string | null, nextUncertain: boolean) {
     if (activeIdRef.current !== id) {
@@ -182,7 +193,7 @@ export function usePorchlight(
   flushRef.current = async () => {
     if (extractingRef.current) return;
     const personId = activeIdRef.current;
-    const pending = pendingRef.current.trim();
+    const pending = `${pendingRef.current} ${liveRef.current}`.trim();
     if (!personId || !shouldExtract(pending, lastSpeechAtRef.current, lastExtractAtRef.current)) return;
 
     const person = peopleRef.current.find((item) => item.id === personId);
@@ -190,6 +201,7 @@ export function usePorchlight(
     extractingRef.current = true;
     const snapshot = pending;
     pendingRef.current = "";
+    liveRef.current = "";
     const extractStarted = performance.now();
     try {
       const result = await extractNotes({
@@ -202,7 +214,7 @@ export function usePorchlight(
         },
       });
       if ("error" in result) {
-        pendingRef.current = `${snapshot} ${pendingRef.current}`.trim();
+        pendingRef.current = `${snapshot} ${pendingRef.current}`.trim().slice(-4000);
         if (result.error === "missing_key") {
           setKeyMissing(true);
           setExtractError(null);
@@ -219,7 +231,7 @@ export function usePorchlight(
       lastExtractAtRef.current = now;
       timingRef.current.extractMs = Math.round(performance.now() - extractStarted);
     } catch {
-      pendingRef.current = `${snapshot} ${pendingRef.current}`.trim();
+      pendingRef.current = `${snapshot} ${pendingRef.current}`.trim().slice(-4000);
       setExtractError("Claude could not be reached.");
     } finally {
       extractingRef.current = false;
@@ -230,7 +242,7 @@ export function usePorchlight(
     if (phase !== "running") return;
     const timer = window.setInterval(() => {
       void flushRef.current();
-    }, 1000);
+    }, 400);
     return () => window.clearInterval(timer);
   }, [phase]);
 
@@ -241,12 +253,25 @@ export function usePorchlight(
     const timer = window.setTimeout(() => {
       if (stopped) return;
       listener = listenForVisit({
-        onInterim: showSpeech,
+        onInterim: (text) => {
+          if (glassesCommand(text) || recallUtterance(text)) return;
+          liveRef.current = text.trim();
+          lastSpeechAtRef.current = Date.now();
+        },
         onFinal: (text, finalMs) => {
-          pendingRef.current = `${pendingRef.current} ${text}`.trim();
+          if (spokenRef?.current?.(text)) {
+            liveRef.current = "";
+            return;
+          }
+          const spoken = text.trim();
+          const live = liveRef.current.trim();
+          const sameUtterance = Boolean(live) && (spoken.startsWith(live) || live.startsWith(spoken));
+          const addition = sameUtterance ? spoken : `${live} ${spoken}`.trim();
+          const next = `${pendingRef.current} ${addition}`.trim();
+          liveRef.current = "";
+          pendingRef.current = next.length > 4000 ? next.slice(-4000) : next;
           lastSpeechAtRef.current = Date.now();
           if (finalMs !== null) timingRef.current.finalMs = finalMs;
-          showSpeech(text);
         },
         onHeard: (ms) => {
           timingRef.current.heardMs = ms;
@@ -261,7 +286,7 @@ export function usePorchlight(
         return;
       }
       if (!listener) {
-        setSpeechError("This browser cannot listen. Open Porchlight in Chrome.");
+        setSpeechError("This browser cannot listen. Open Recall AI in Chrome.");
         return;
       }
       setSpeechError(null);
@@ -271,7 +296,7 @@ export function usePorchlight(
       window.clearTimeout(timer);
       listener?.stop();
     };
-  }, [phase, micOn, yieldMic]);
+  }, [phase, micOn, yieldMic, spokenRef]);
 
   useEffect(() => {
     if (phase !== "running" || !cameraOn) return;
@@ -307,7 +332,6 @@ export function usePorchlight(
     people,
     active,
     uncertain,
-    hearing,
     status,
     speechError,
     extractError,
@@ -332,14 +356,14 @@ export function usePorchlight(
     showMemories: () => setView("memories"),
     addNote: (personId: string, text: string) => {
       const person = peopleRef.current.find((item) => item.id === personId);
-      const note = text.replace(/\s+/g, " ").trim().slice(0, 140);
+      const note = reminderLine(text, person?.name).slice(0, 140);
       if (!person || note.length === 0) return;
       const key = note.toLowerCase();
-      if (person.facts.some((fact) => fact.text.toLowerCase() === key)) return;
+      if ((person.reminders ?? []).some((item) => reminderLine(item.text, person.name).toLowerCase() === key)) return;
       const now = Date.now();
       commitPerson({
         ...person,
-        facts: [...person.facts, { id: crypto.randomUUID(), text: note, at: now }],
+        reminders: [...(person.reminders ?? []), { id: crypto.randomUUID(), text: note, at: now, done: false }],
         updatedAt: now,
       });
     },
@@ -382,6 +406,7 @@ export function usePorchlight(
     removeAll: () => {
       peopleRef.current = [];
       pendingRef.current = "";
+      liveRef.current = "";
       setPeople([]);
       showPerson(null, false);
       setConfirmingDelete(false);
