@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-interface PorchlightPerf {
+interface RecallAIPerf {
   previewFps: number;
   detectFps: number;
   detectMsAvg: number;
@@ -20,5 +20,5 @@ interface PorchlightPerf {
 }
 
 interface Window {
-  __porchlightPerf?: PorchlightPerf;
+  __recallAIPerf?: RecallAIPerf;
 }

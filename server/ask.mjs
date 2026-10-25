@@ -1,3 +1,5 @@
+import { usableNote } from "../shared/memorySearch.mjs";
+
 const MODEL = "claude-haiku-5-5";
 
 const INSTRUCTION = `You answer a question about a visitor using only the memories provided. Never invent a fact. If the memories do not contain the answer, say you do not have that memory.
@@ -5,26 +7,45 @@ const INSTRUCTION = `You answer a question about a visitor using only the memori
 Return JSON only, with no markdown, in this shape:
 {"answer": string, "relevant": string[]}
 
-answer is one or two short sentences.
-relevant lists only the provided memories that directly answer the question. Copy each one exactly, without the speaker name. Leave out small talk and anything that was merely said in passing. If nothing answers the question, use an empty list.`;
+answer is one short spoken sentence. Do not mention transcripts, cutoffs, or unfinished sentences. If the memories do not say the answer, say you do not have that memory.
+relevant lists only the provided memories that directly answer the question. Copy each one exactly, without the speaker name. Leave out small talk, unfinished sentences, and anything that was merely said in passing. If nothing answers the question, use an empty list.`;
 
-function parseAnswer(text) {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return { answer: text.slice(0, 500) || "I do not have that memory.", relevant: [] };
-  try {
-    const parsed = JSON.parse(match[0]);
-    const answer = typeof parsed.answer === "string" ? parsed.answer.trim().slice(0, 500) : "";
-    const relevant = Array.isArray(parsed.relevant)
-      ? parsed.relevant
-          .filter((line) => typeof line === "string")
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .slice(0, 4)
-      : [];
-    return { answer: answer || "I do not have that memory.", relevant };
-  } catch {
-    return { answer: text.slice(0, 500) || "I do not have that memory.", relevant: [] };
+function plainAnswer(value) {
+  const answer = String(value || "")
+    .replace(/\\n/g, " ")
+    .replace(/\\"/g, '"')
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 280);
+  if (!answer || answer.startsWith("{") || answer.includes('"relevant"')) return "";
+  return answer;
+}
+
+export function parseAnswer(text) {
+  const raw = String(text || "").trim();
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const body = (fenced ? fenced[1] : raw).trim();
+  const start = body.indexOf("{");
+  const end = body.lastIndexOf("}");
+  if (start !== -1 && end > start) {
+    try {
+      const parsed = JSON.parse(body.slice(start, end + 1));
+      const answer = plainAnswer(parsed.answer);
+      const relevant = Array.isArray(parsed.relevant)
+        ? parsed.relevant
+            .filter((line) => typeof line === "string")
+            .map((line) => line.trim())
+            .filter((line) => usableNote(line))
+            .slice(0, 4)
+        : [];
+      return { answer: answer || "I do not have that memory.", relevant };
+    } catch {
+      // A cut-off reply still has the answer text before the JSON breaks.
+    }
   }
+  const pulled = body.match(/"answer"\s*:\s*"((?:\\.|[^"\\])*)/);
+  const answer = plainAnswer(pulled ? pulled[1] : body.startsWith("{") ? "" : body);
+  return { answer: answer || "I do not have that memory.", relevant: [] };
 }
 
 function send(res, status, body) {
@@ -80,7 +101,7 @@ export function handleAsk(req, res, env) {
         },
         body: JSON.stringify({
           model,
-          max_tokens: 300,
+          max_tokens: 400,
           output_config: { effort: "low" },
           system: INSTRUCTION,
           messages: [

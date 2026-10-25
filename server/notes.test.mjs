@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mergeCard, parseModelText, plausibleName } from "./notes.mjs";
+import { mergeCard, parseModelText, plausibleName, tasksFromSpeech } from "./notes.mjs";
 
 test("reads fenced JSON and drops a sentence that is not a name", () => {
   const notes = parseModelText(`Here you go:
@@ -32,6 +32,21 @@ test("keeps a spoken reminder and drops a duplicate", () => {
   );
   assert.deepEqual(notes.reminders, ["call the doctor tomorrow"]);
   assert.deepEqual(notes.facts, ["has a dog named Pepper"]);
+});
+
+test("drops a fact that stops halfway or talks about the transcript", () => {
+  const notes = parseModelText(
+    '{"name":null,"relationship":null,"facts":["went to the beach and had a great time","it was fun because I was able to see my friend from","was able to see a friend, though the transcript cuts off"],"reminders":["call Mom"]}',
+  );
+  assert.deepEqual(notes.facts, ["went to the beach and had a great time"]);
+  assert.deepEqual(notes.reminders, ["call Mom"]);
+});
+
+test("turns a spoken task into a reminder and leaves a story alone", () => {
+  assert.deepEqual(tasksFromSpeech("I need to take out the trash.", "Garrett"), [
+    "Remind Garrett to take out the trash",
+  ]);
+  assert.deepEqual(tasksFromSpeech("I went to the beach and had a great time.", "Garrett"), []);
 });
 
 test("does not wipe an existing name when the model is unsure", () => {

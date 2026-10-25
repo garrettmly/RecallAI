@@ -179,10 +179,9 @@ h1 {
   overflow: auto;
   padding: 0.45rem 0.7rem 0.55rem;
   color: #fffaf3;
-  background: rgba(18, 14, 12, 0.5);
+  background: rgba(18, 14, 12, 0.78);
   border: 1px solid rgba(255, 250, 243, 0.16);
   border-radius: 0.75rem;
-  backdrop-filter: blur(8px);
 }
 
 .notepad h2 {
@@ -304,10 +303,188 @@ h1 {
   height: 100vh;
   object-fit: cover;
   background: #111;
-  transform: scaleX(-1) translateZ(0);
-  will-change: transform;
+  transform: scaleX(-1);
   z-index: 0;
 }
+
+.app.glasses {
+  --glasses-top: 4.4rem;
+  --glasses-answer: 7.4rem;
+  --glasses-h: calc(100vh - var(--glasses-top) - var(--glasses-answer));
+  --glasses-w: calc(100vw - 1rem);
+  --glasses-left: 0.5rem;
+  background: #070605;
+}
+
+body:has(.app.glasses) { background: #070605; }
+
+.app.glasses .camera {
+  inset: auto;
+  left: var(--glasses-left);
+  top: var(--glasses-top);
+  width: var(--glasses-w);
+  height: var(--glasses-h);
+  opacity: 0;
+}
+
+.app.live.glasses .topbar { position: relative; z-index: 7; }
+
+.glasses-mode {
+  position: fixed;
+  left: var(--glasses-left);
+  top: var(--glasses-top);
+  width: var(--glasses-w);
+  height: var(--glasses-h);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.glasses-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.glasses-lens {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.glasses-fill {
+  position: absolute;
+  inset: 0;
+  clip-path: url(#glasses-lens-clip);
+}
+
+.glasses-slit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  background: #111;
+}
+
+.glasses-outline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.glasses-hud {
+  position: absolute;
+  top: 12%;
+  right: 4%;
+  bottom: 14%;
+  left: 4%;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  pointer-events: none;
+}
+
+.glasses-slot {
+  position: relative;
+  width: min(22rem, 34%);
+  max-height: 100%;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.glasses-slot.person {
+  width: min(20rem, 30%);
+}
+
+.app.glasses.notes-shut .notepad { display: none; }
+
+.app.glasses.person-shut .face-label .note { display: none; }
+
+.glasses-answer {
+  position: fixed;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.35rem;
+  z-index: 8;
+  width: auto;
+  max-height: 6.6rem;
+  margin: 0;
+  overflow: auto;
+  padding: 0.15rem 0.4rem 0.2rem;
+  color: #fffaf3;
+  background: #070605;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.glasses-answer p { margin: 0.15rem 0; }
+
+.glasses-question { font-weight: 650; }
+
+.app.glasses .glasses-lens .notepad,
+.app.glasses .glasses-lens .face-label {
+  position: relative;
+  inset: auto;
+  top: auto;
+  left: auto;
+  width: 100%;
+  max-height: 100%;
+  transform: none;
+}
+
+.app.glasses .glasses-lens .notepad {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  max-height: 100%;
+  background: rgba(18, 14, 12, 0.72);
+  border-color: transparent;
+  overflow: hidden;
+}
+
+.app.glasses .glasses-lens .notepad-lines {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.app.glasses .glasses-lens .face-label {
+  width: 100%;
+  max-height: 100%;
+  overflow: auto;
+}
+
+.app.live.glasses .stage {
+  position: fixed;
+  z-index: 6;
+  left: var(--glasses-left);
+  top: max(4.6rem, calc(var(--glasses-top) - 3.4rem));
+  width: var(--glasses-w);
+  margin: 0;
+  padding: 0 1.5rem;
+  pointer-events: none;
+}
+
+.app.live.glasses .banner {
+  width: min(22rem, 62%);
+  margin-inline: auto;
+  pointer-events: auto;
+}
+
+.app.glasses .pill {
+  min-height: 2rem;
+  font-size: 1.15rem;
+}
+
+.app.glasses .note { font-size: 0.95rem; }
 
 .camera.parked {
   width: 1px;
@@ -502,11 +679,10 @@ code {
   padding: 0.28rem 0.9rem;
   border-radius: 999px;
   color: #fffaf3;
-  background: rgba(18, 14, 12, 0.58);
+  background: rgba(18, 14, 12, 0.82);
   border: 1px solid rgba(255, 250, 243, 0.28);
   font-size: 0.95rem;
   white-space: nowrap;
-  backdrop-filter: blur(10px);
 }
 
 .suggestion:hover {

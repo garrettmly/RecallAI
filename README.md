@@ -1,6 +1,6 @@
-# Porchlight
+# Recall AI
 
-Porchlight is a laptop web app for a household supporting someone with dementia. The camera looks at a visitor. The microphone listens. Claude reads the transcript and fills in a name, a relationship, and a few facts from what was actually said. Nobody creates a profile first.
+Recall AI is a laptop web app for a household supporting someone with dementia. The camera looks at a visitor. The microphone listens. Claude reads the transcript and fills in a name, a relationship, and a few facts from what was actually said. Nobody creates a profile first.
 
 The next time that same face sits down, the card is already there.
 

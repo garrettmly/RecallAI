@@ -1,3 +1,5 @@
+import { unreadSpeech } from "../../shared/unreadSpeech.mjs";
+
 type SpeechResultEvent = {
   resultIndex: number;
   results: ArrayLike<SpeechRecognitionResult>;
@@ -9,6 +11,7 @@ type SpeechRecognitionLike = {
   lang: string;
   start: () => void;
   stop: () => void;
+  abort: () => void;
   onspeechstart: (() => void) | null;
   onspeechend: (() => void) | null;
   onresult: ((event: SpeechResultEvent) => void) | null;
@@ -68,53 +71,100 @@ export function startListening(handlers: SpeechHandlers): { stop: () => void } |
   const Ctor = speechConstructor();
   if (!Ctor) return null;
 
-  const recognition = new Ctor();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = "en-US";
   let alive = true;
+  let current: SpeechRecognitionLike | null = null;
+  let recycleTimer = 0;
+  let token = 0;
 
-  recognition.onspeechstart = () => handlers.onSpeechStart?.();
-  recognition.onspeechend = () => handlers.onSpeechEnd?.();
-
-  recognition.onresult = (event) => {
-    const { interim, confirmed } = spokenText(event, event.resultIndex);
-    if (confirmed) handlers.onFinal(confirmed);
-    else if (interim) handlers.onInterim(interim);
-  };
-
-  recognition.onerror = (event) => {
-    reportSpeechError(event.error, handlers.onError);
-  };
-
-  recognition.onend = () => {
-    if (!alive) return;
-    window.setTimeout(() => {
-      if (!alive) return;
-      try {
-        recognition.start();
-      } catch {
-        // Chrome throws if start overlaps the previous session. The next onend retries.
-      }
-    }, 40);
-  };
-
-  try {
-    recognition.start();
-  } catch {
-    handlers.onError("The microphone did not start.");
-    return null;
-  }
-
-  return {
-    stop() {
-      alive = false;
-      recognition.onend = null;
+  const forget = (recognition: SpeechRecognitionLike) => {
+    recognition.onend = null;
+    recognition.onresult = null;
+    try {
+      recognition.abort();
+    } catch {
       try {
         recognition.stop();
       } catch {
         // Already stopped.
       }
+    }
+  };
+
+  const startFresh = () => {
+    if (!alive) return;
+    const mine = ++token;
+    const recognition = new Ctor();
+    current = recognition;
+    let emitted = 0;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    recognition.onspeechstart = () => {
+      if (mine === token) handlers.onSpeechStart?.();
+    };
+    recognition.onspeechend = () => {
+      if (mine === token) handlers.onSpeechEnd?.();
+    };
+    recognition.onresult = (event) => {
+      if (mine !== token) return;
+      const next = unreadSpeech(event.results, emitted);
+      emitted = next.emitted;
+      if (next.confirmed) handlers.onFinal(next.confirmed);
+      else if (next.interim) handlers.onInterim(next.interim);
+    };
+    recognition.onerror = (event) => {
+      if (mine === token) reportSpeechError(event.error, handlers.onError);
+    };
+    recognition.onend = () => {
+      if (!alive || mine !== token) return;
+      window.setTimeout(() => {
+        if (alive && mine === token) startFresh();
+      }, 250);
+    };
+    window.clearTimeout(recycleTimer);
+    try {
+      recognition.start();
+    } catch {
+      window.setTimeout(() => {
+        if (alive && mine === token) startFresh();
+      }, 300);
+      return;
+    }
+    recycleTimer = window.setTimeout(() => {
+      if (!alive || mine !== token) return;
+      const handoff = ++token;
+      recognition.onresult = null;
+      recognition.onend = () => {
+        recognition.onend = null;
+        if (!alive || handoff !== token) return;
+        if (current === recognition) current = null;
+        startFresh();
+      };
+      try {
+        recognition.abort();
+      } catch {
+        if (current === recognition) current = null;
+        startFresh();
+      }
+      window.setTimeout(() => {
+        if (!alive || handoff !== token || current !== recognition) return;
+        recognition.onend = null;
+        if (current === recognition) current = null;
+        startFresh();
+      }, 500);
+    }, 20000);
+  };
+
+  startFresh();
+
+  return {
+    stop() {
+      alive = false;
+      token += 1;
+      window.clearTimeout(recycleTimer);
+      const recognition = current;
+      current = null;
+      if (recognition) forget(recognition);
     },
   };
 }

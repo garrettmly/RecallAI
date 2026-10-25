@@ -40,7 +40,7 @@ function mediapipeWasm(): Plugin {
 
 function memoryApi(env: Record<string, string>): Plugin {
   return {
-    name: "porchlight-memory-api",
+    name: "recallai-memory-api",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const path = req.url?.split("?")[0];
