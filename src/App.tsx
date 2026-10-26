@@ -220,7 +220,9 @@ export function App() {
         aria-label="Camera preview"
       />
       <header className="topbar">
-        <p className="wordmark">Recall AI</p>
+        <p className="wordmark">
+          Recall <span>AI</span>
+        </p>
         <p className={`listen ${listening ? "on" : ""}`} role="status">
           <span className="light" aria-hidden="true" />
           {listening ? "Listening" : !app.cameraOn ? "Camera off" : app.ready ? "Camera on" : "Starting"}

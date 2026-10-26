@@ -1,12 +1,12 @@
 :root {
   color-scheme: light;
-  --paper: #f3ecdf;
-  --ink: #1a1612;
-  --muted: #5c5348;
-  --line: #ddcfbb;
-  --card: #fffaf3;
-  --amber: #9a4e1c;
-  --amber-deep: #7a3c14;
+  --paper: #ffffff;
+  --ink: #24364d;
+  --muted: #5c7084;
+  --line: #d5e2ee;
+  --card: #ffffff;
+  --blue: #5890d8;
+  --navy: #284060;
   --danger: #7a2618;
   font-family: "Avenir Next", "Segoe UI", sans-serif;
   color: var(--ink);
@@ -20,7 +20,7 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(184, 97, 45, 0.14), transparent 32rem),
+    radial-gradient(circle at top, rgba(88, 144, 216, 0.16), transparent 26rem),
     var(--paper);
 }
 
@@ -31,18 +31,22 @@ button {
   border-radius: 999px;
   border: 1px solid transparent;
   padding: 0.65rem 1.2rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
 button:focus-visible, input:focus-visible {
-  outline: 3px solid var(--amber);
+  outline: 3px solid var(--blue);
   outline-offset: 3px;
 }
 
 .primary {
-  background: var(--amber-deep);
-  color: #fffaf3;
+  background: var(--navy);
+  color: #ffffff;
+  font-weight: 700;
 }
+
+.primary:hover { background: #1d334d; }
 
 .secondary {
   background: transparent;
@@ -72,28 +76,58 @@ button:focus-visible, input:focus-visible {
   margin-inline: auto;
 }
 
-.welcome { padding: 8vh 0 4rem; max-width: 40rem; }
-
-.eyebrow, .wordmark {
-  margin: 0;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-size: 0.78rem;
-  color: var(--amber-deep);
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 7vh 0 4rem;
+  max-width: 38rem;
 }
+
+.logo {
+  width: min(17.5rem, 78vw);
+  height: auto;
+  margin: 0 0 0.25rem;
+}
+
+.wordmark {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: -0.04em;
+  color: var(--navy);
+}
+
+.wordmark span { color: var(--blue); }
 
 h1 {
-  font-family: Georgia, "Iowan Old Style", serif;
-  font-weight: 500;
-  letter-spacing: -0.03em;
-  line-height: 0.98;
-  font-size: clamp(3.2rem, 8vw, 6.5rem);
-  margin: 0.4rem 0 1rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  margin: 0.2rem 0 0.8rem;
 }
 
-.welcome h1 { font-size: clamp(2.6rem, 6vw, 4.4rem); }
+.welcome h1 {
+  max-width: 16em;
+  font-size: clamp(1.7rem, 3.4vw, 2.2rem);
+  line-height: 1.2;
+}
 
-.lede, .quiet-line, .meta, .hearing { color: var(--muted); }
+.welcome .lede { margin-inline: auto; }
+
+.welcome .plain {
+  width: min(34rem, 100%);
+  margin: 0.4rem 0 1.6rem;
+  text-align: left;
+}
+
+.welcome .plain li::marker { color: var(--blue); }
+
+.welcome .primary { min-width: 9rem; }
+
+.lede, .quiet-line, .meta { color: var(--muted); }
 
 .lede { font-size: 1.2rem; max-width: 38rem; }
 
@@ -125,8 +159,8 @@ h1 {
   background: var(--line);
 }
 
-.listen.on { color: var(--amber-deep); }
-.listen.on .light { background: var(--amber); }
+.listen.on { color: var(--navy); }
+.listen.on .light { background: var(--blue); }
 
 @media (prefers-reduced-motion: no-preference) {
   .listen.on .light { animation: pulse 1.6s ease-in-out infinite; }
@@ -143,12 +177,6 @@ h1 {
 }
 
 .visit, .memories { min-width: 0; }
-
-.maybe {
-  margin: 0;
-  font-size: 1.4rem;
-  color: var(--amber-deep);
-}
 
 .relationship {
   margin-top: -0.4rem;
@@ -178,9 +206,9 @@ h1 {
   max-height: calc(100vh - 10rem);
   overflow: auto;
   padding: 0.45rem 0.7rem 0.55rem;
-  color: #fffaf3;
-  background: rgba(18, 14, 12, 0.78);
-  border: 1px solid rgba(255, 250, 243, 0.16);
+  color: #ffffff;
+  background: rgba(16, 28, 46, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 0.75rem;
 }
 
@@ -190,12 +218,12 @@ h1 {
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 250, 243, 0.68);
+  color: rgba(255, 255, 255, 0.68);
 }
 
 .notepad .quiet-line {
   margin: 0.2rem 0 0;
-  color: rgba(255, 250, 243, 0.78);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 0.82rem;
 }
 
@@ -211,7 +239,7 @@ h1 {
   align-items: center;
   gap: 0.35rem;
   padding: 0.32rem 0;
-  border-top: 1px solid rgba(255, 250, 243, 0.14);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
   font-size: 0.88rem;
   line-height: 1.3;
 }
@@ -228,15 +256,15 @@ h1 {
   padding: 0;
   border: 0;
   border-radius: 999px;
-  color: rgba(255, 250, 243, 0.72);
+  color: rgba(255, 255, 255, 0.72);
   background: transparent;
   font-size: 1.15rem;
   line-height: 1;
 }
 
 .notepad-delete:hover {
-  color: #fffaf3;
-  background: rgba(255, 250, 243, 0.12);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .notepad-add {
@@ -250,15 +278,15 @@ h1 {
   min-width: 0;
   min-height: 2rem;
   padding: 0.2rem 0.7rem;
-  border: 1px solid rgba(255, 250, 243, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
-  color: #fffaf3;
+  color: #ffffff;
   background: transparent;
   font-size: 0.88rem;
 }
 
 .notepad-add input::placeholder {
-  color: rgba(255, 250, 243, 0.5);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .notepad-add input:disabled {
@@ -269,9 +297,9 @@ h1 {
   min-height: 2rem;
   padding: 0.2rem 0.75rem;
   border-radius: 999px;
-  color: #fffaf3;
-  background: rgba(255, 250, 243, 0.14);
-  border-color: rgba(255, 250, 243, 0.22);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
   font-size: 0.82rem;
 }
 
@@ -279,18 +307,10 @@ h1 {
   opacity: 0.45;
 }
 
-.notepad-lines .who {
-  color: rgba(255, 250, 243, 0.62);
-  font-size: 0.7rem;
-  letter-spacing: 0.02em;
-}
-
-.note.reminder { background: rgba(154, 78, 28, 0.92); }
-
-.hearing { font-size: 1rem; }
+.note.reminder { background: #3a78c0; }
 
 .banner {
-  background: #fff4e8;
+  background: #eef4fb;
   border: 1px solid var(--line);
   border-radius: 1rem;
   padding: 0.8rem 1rem;
@@ -309,14 +329,13 @@ h1 {
 
 .app.glasses {
   --glasses-top: 4.4rem;
-  --glasses-answer: 7.4rem;
-  --glasses-h: calc(100vh - var(--glasses-top) - var(--glasses-answer));
+  --glasses-h: calc(100vh - var(--glasses-top) - 0.6rem);
   --glasses-w: calc(100vw - 1rem);
   --glasses-left: 0.5rem;
-  background: #070605;
+  background: #0c1218;
 }
 
-body:has(.app.glasses) { background: #070605; }
+body:has(.app.glasses) { background: #0c1218; }
 
 .app.glasses .camera {
   inset: auto;
@@ -382,7 +401,7 @@ body:has(.app.glasses) { background: #070605; }
   right: 4%;
   bottom: 14%;
   left: 4%;
-  z-index: 1;
+  z-index: 4;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -394,8 +413,9 @@ body:has(.app.glasses) { background: #070605; }
   position: relative;
   width: min(22rem, 34%);
   max-height: 100%;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: auto;
+  transform: none !important;
 }
 
 .glasses-slot.person {
@@ -407,22 +427,32 @@ body:has(.app.glasses) { background: #070605; }
 .app.glasses.person-shut .face-label .note { display: none; }
 
 .glasses-answer {
-  position: fixed;
-  left: 0.75rem;
-  right: 0.75rem;
-  bottom: 0.35rem;
-  z-index: 8;
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 14%;
+  z-index: 5;
   width: auto;
-  max-height: 6.6rem;
+  max-height: 28%;
   margin: 0;
   overflow: auto;
-  padding: 0.15rem 0.4rem 0.2rem;
-  color: #fffaf3;
-  background: #070605;
+  padding: 0.45rem 0.8rem;
+  color: #ffffff;
+  background: rgba(12, 22, 36, 0.82);
+  border-radius: 0.8rem;
   font-size: 1.05rem;
   line-height: 1.35;
   text-align: center;
   pointer-events: auto;
+}
+
+.app:not(.glasses) .glasses-answer {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: 7.5rem;
+  z-index: 6;
+  max-height: 8rem;
 }
 
 .glasses-answer p { margin: 0.15rem 0; }
@@ -440,12 +470,21 @@ body:has(.app.glasses) { background: #070605; }
   transform: none;
 }
 
+/* The visit loop writes an inline offset. That offset clips the name card out of the lens. */
+.app.glasses .face-label {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  transform: none !important;
+  opacity: 1 !important;
+}
+
 .app.glasses .glasses-lens .notepad {
   display: flex;
   flex-direction: column;
   height: auto;
   max-height: 100%;
-  background: rgba(18, 14, 12, 0.72);
+  background: rgba(16, 28, 46, 0.72);
   border-color: transparent;
   overflow: hidden;
 }
@@ -495,10 +534,10 @@ body:has(.app.glasses) { background: #070605; }
 
 .app.live {
   min-height: 100vh;
-  background: #111;
+  background: #121820;
 }
 
-body:has(.app.live) { background: #111; }
+body:has(.app.live) { background: #121820; }
 
 .app.live .topbar,
 .app.live .stage { position: relative; z-index: 1; }
@@ -509,18 +548,20 @@ body:has(.app.live) { background: #111; }
 }
 
 .app.live .wordmark,
-.app.live .listen { color: #fffaf3; }
+.app.live .listen { color: #ffffff; }
+
+.app.live .listen.on { color: #ffffff; }
 
 .app.live .secondary {
-  background: rgba(26, 22, 18, 0.78);
-  color: #fffaf3;
-  border-color: rgba(255, 250, 243, 0.35);
+  background: rgba(20, 36, 56, 0.78);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .app.live .secondary.current {
-  background: #fffaf3;
-  color: #1a1612;
-  border-color: #fffaf3;
+  background: #ffffff;
+  color: #24364d;
+  border-color: #ffffff;
 }
 
 .app.live .notices {
@@ -529,24 +570,9 @@ body:has(.app.live) { background: #111; }
 }
 
 .app.live .banner {
-  background: rgba(26, 22, 18, 0.88);
-  color: #fffaf3;
-  border-color: rgba(255, 250, 243, 0.28);
-}
-
-.perf {
-  position: fixed;
-  left: 12px;
-  bottom: 12px;
-  z-index: 6;
-  margin: 0;
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.7rem;
-  background: rgba(0, 0, 0, 0.78);
-  color: #fff;
-  font: 12px/1.45 ui-monospace, monospace;
-  white-space: pre;
-  pointer-events: none;
+  background: rgba(20, 36, 56, 0.88);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .face-label {
@@ -580,15 +606,15 @@ body:has(.app.live) { background: #111; }
   letter-spacing: -0.02em;
 }
 
-.pill.name { background: #14a37a; }
+.pill.name { background: var(--navy); }
 
-.pill.relation { background: #19b4d6; }
+.pill.relation { background: var(--blue); }
 
 .note {
   margin: 0.5rem 0 0;
   padding: 0.8rem 0.95rem;
   border-radius: 1rem;
-  background: rgba(54, 60, 64, 0.94);
+  background: rgba(28, 44, 64, 0.94);
   color: #fff;
   font-size: 1.08rem;
   line-height: 1.35;
@@ -620,8 +646,9 @@ body:has(.app.live) { background: #111; }
 }
 
 .memory input {
-  font-family: Georgia, "Iowan Old Style", serif;
-  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-size: 1.7rem;
   color: var(--ink);
   background: transparent;
   border: none;
@@ -636,11 +663,6 @@ body:has(.app.live) { background: #111; }
   gap: 0.75rem;
   align-items: center;
   margin-top: 1.5rem;
-}
-
-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.95em;
 }
 
 .bottom-bar {
@@ -678,15 +700,15 @@ code {
   min-height: 2.15rem;
   padding: 0.28rem 0.9rem;
   border-radius: 999px;
-  color: #fffaf3;
-  background: rgba(18, 14, 12, 0.82);
-  border: 1px solid rgba(255, 250, 243, 0.28);
+  color: #ffffff;
+  background: rgba(16, 28, 46, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   font-size: 0.95rem;
   white-space: nowrap;
 }
 
 .suggestion:hover {
-  background: rgba(18, 14, 12, 0.78);
+  background: rgba(16, 28, 46, 0.78);
 }
 
 .device {
@@ -697,9 +719,9 @@ code {
   width: 3.5rem;
   min-height: 3.5rem;
   padding: 0;
-  color: #fffaf3;
-  background: rgba(26, 22, 18, 0.82);
-  border-color: rgba(255, 250, 243, 0.35);
+  color: #ffffff;
+  background: rgba(20, 36, 56, 0.82);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .search-bar {
@@ -711,9 +733,9 @@ code {
   min-width: 0;
   min-height: 3.45rem;
   padding: 0.3rem 0.35rem 0.3rem 1.15rem;
-  color: #fffaf3;
-  background: rgba(18, 14, 12, 0.58);
-  border: 1px solid rgba(255, 250, 243, 0.28);
+  color: #ffffff;
+  background: rgba(16, 28, 46, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 999px;
 }
 
@@ -724,12 +746,12 @@ code {
   padding: 0;
   border: 0;
   border-radius: 0;
-  color: #fffaf3;
+  color: #ffffff;
   background: transparent;
 }
 
 .search-bar input::placeholder {
-  color: rgba(255, 250, 243, 0.62);
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .search-bar input:focus-visible {
@@ -749,7 +771,7 @@ code {
 }
 
 .search-voice {
-  color: rgba(255, 250, 243, 0.88);
+  color: rgba(255, 255, 255, 0.88);
   background: transparent;
   border-color: transparent;
 }
@@ -761,7 +783,7 @@ code {
 
 .search-send {
   color: #fff;
-  background: #2f7cf6;
+  background: #2f74c8;
   border-color: transparent;
 }
 
@@ -794,7 +816,7 @@ code {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 1.1rem;
-  box-shadow: 0 12px 40px rgba(26, 22, 18, 0.28);
+  box-shadow: 0 12px 40px rgba(20, 36, 56, 0.28);
 }
 
 .search-head {
@@ -842,7 +864,7 @@ code {
 }
 
 .device.off {
-  color: rgba(255, 250, 243, 0.55);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 @media (max-width: 800px) {
