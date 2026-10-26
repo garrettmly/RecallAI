@@ -25,14 +25,12 @@ function PersonCard({
   name,
   relationship,
   cue,
-  heard,
   points,
 }: {
   labelRef: RefObject<HTMLElement | null>;
   name: string;
   relationship: string;
   cue?: string;
-  heard?: string;
   points: { id: string; text: string }[];
 }) {
   return (
@@ -42,14 +40,13 @@ function PersonCard({
         {relationship ? <span className="pill relation">{relationship}</span> : null}
       </div>
       {cue ? <p className="note reminder">{cue}</p> : null}
-      {heard ? <p className="note">{heard}</p> : null}
       {points.length > 0 ? (
         <ul className="note points">
           {points.map((fact) => (
             <li key={fact.id}>{fact.text}</li>
           ))}
         </ul>
-      ) : heard ? null : (
+      ) : (
         <p className="note">Waiting to hear a name.</p>
       )}
     </aside>
@@ -319,7 +316,6 @@ export function App() {
               name={known && app.active?.name ? app.active.name : "Listening"}
               relationship={relationship}
               cue={cue}
-              heard={app.heard}
               points={points}
             />
           }
@@ -337,7 +333,6 @@ export function App() {
           name={known && app.active?.name ? app.active.name : "Listening"}
           relationship={relationship}
           cue={cue}
-          heard={app.heard}
           points={points}
         />
       ) : null}

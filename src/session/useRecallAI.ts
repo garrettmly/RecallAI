@@ -35,7 +35,6 @@ export function useRecallAI(
   const [ready, setReady] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [perf, setPerf] = useState<VisitPerf | null>(null);
-  const [heard, setHeard] = useState("");
 
   const peopleRef = useRef<Person[]>([]);
   const activeIdRef = useRef<string | null>(null);
@@ -226,14 +225,7 @@ export function useRecallAI(
       }
       const latest = peopleRef.current.find((item) => item.id === personId) ?? person;
       const now = Date.now();
-      const updated = applyNotes(latest, result, snapshot, now);
-      commitPerson(updated);
-      const wrote =
-        updated.name !== latest.name ||
-        updated.relationship !== latest.relationship ||
-        updated.facts.length !== latest.facts.length ||
-        updated.reminders.length !== (latest.reminders ?? []).length;
-      if (wrote) setHeard("");
+      commitPerson(applyNotes(latest, result, snapshot, now));
       setKeyMissing(false);
       setExtractError(null);
       lastExtractAtRef.current = now;
@@ -267,13 +259,11 @@ export function useRecallAI(
           liveRef.current = line;
           lastSpeechAtRef.current = Date.now();
           phraseEndedRef.current = false;
-          setHeard(line);
         },
         onFinal: (text) => {
           if (spokenRef?.current?.(text)) {
             liveRef.current = "";
             phraseEndedRef.current = false;
-            setHeard("");
             return;
           }
           const spoken = text.trim();
@@ -285,7 +275,6 @@ export function useRecallAI(
           pendingRef.current = next.length > 4000 ? next.slice(-4000) : next;
           lastSpeechAtRef.current = Date.now();
           phraseEndedRef.current = true;
-          setHeard(addition);
           void flushRef.current();
         },
         onError: (message) => setSpeechError(message),
@@ -346,7 +335,6 @@ export function useRecallAI(
     extractError,
     keyMissing,
     ready,
-    heard,
     confirmingDelete,
     perf,
     start: () => {
@@ -418,7 +406,6 @@ export function useRecallAI(
       pendingRef.current = "";
       liveRef.current = "";
       phraseEndedRef.current = false;
-      setHeard("");
       setPeople([]);
       showPerson(null, false);
       setConfirmingDelete(false);
