@@ -40,7 +40,7 @@ export function parseAnswer(text) {
         : [];
       return { answer: answer || "I do not have that memory.", relevant };
     } catch {
-      // A cut-off reply still has the answer text before the JSON breaks.
+      // broken json, falls through
     }
   }
   const pulled = body.match(/"answer"\s*:\s*"([^"]*)/);
