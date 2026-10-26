@@ -11,7 +11,7 @@ import type { NormBox } from "./match";
 };
 
 type Inbound =
-  | { type: "init"; wasmUrl: string; modelUrl: string; frames?: ReadableStream<VideoFrame> }
+  | { type: "init"; wasmUrl: string; modelUrl: string }
   | { type: "frame"; bitmap: ImageBitmap; id: number; sentAt: number }
   | { type: "sample" }
   | { type: "stop" };
@@ -21,15 +21,10 @@ type Outbound =
   | { type: "error"; message: string }
   | { type: "box"; id: number; sentAt: number; box: NormBox | null; dropped: boolean; sample?: ImageBitmap };
 
-const DETECT_GAP_MS = 200;
-
 let detector: FaceDetector | null = null;
 let busy = false;
-let lastDetectAt = 0;
-let frameId = 0;
 let canvas: OffscreenCanvas | null = null;
 let context: OffscreenCanvasRenderingContext2D | null = null;
-let reader: ReadableStreamDefaultReader<VideoFrame> | null = null;
 let stopped = false;
 let wantSample = false;
 let wasmUrl = "";
@@ -40,10 +35,6 @@ let rebuilding = false;
 self.onmessage = (event: MessageEvent<Inbound>) => {
   const data = event.data;
   if (data.type === "init") {
-    if (data.frames) {
-      reader = data.frames.getReader();
-      void pump();
-    }
     void start(data.wasmUrl, data.modelUrl);
     return;
   }
@@ -53,7 +44,6 @@ self.onmessage = (event: MessageEvent<Inbound>) => {
   }
   if (data.type === "stop") {
     stopped = true;
-    void reader?.cancel().catch(() => {});
     detector?.close();
     detector = null;
     return;
@@ -86,52 +76,12 @@ async function start(nextWasm: string, nextModel: string) {
 }
 
 function scheduleRebuild() {
+  // MediaPipe holds onto memory, so start a fresh detector every minute and a half.
   if (rebuilding || stopped || !modelUrl || performance.now() - builtAt < 90000) return;
   rebuilding = true;
   void start(wasmUrl, modelUrl).finally(() => {
     rebuilding = false;
   });
-}
-
-async function pump() {
-  if (!reader) return;
-  while (!stopped) {
-    let next: ReadableStreamReadResult<VideoFrame>;
-    try {
-      next = await reader.read();
-    } catch {
-      break;
-    }
-    if (next.done || !next.value) break;
-    const frame = next.value;
-    const now = performance.now();
-    if (!detector || busy || now - lastDetectAt < DETECT_GAP_MS) {
-      frame.close();
-      continue;
-    }
-    lastDetectAt = now;
-    const sentAt = Date.now();
-    busy = true;
-    const id = ++frameId;
-    let box: NormBox | null = null;
-    let sample: ImageBitmap | null = null;
-    try {
-      const painted = paint(frame);
-      const result = detector.detect(painted);
-      box = largestBox(result.detections, painted.width, painted.height);
-      if (wantSample && box) {
-        sample = painted.transferToImageBitmap();
-        wantSample = false;
-      }
-    } catch {
-      box = null;
-    } finally {
-      frame.close();
-      busy = false;
-    }
-    if (sample) post({ type: "box", id, sentAt, box, dropped: false, sample }, [sample]);
-    else post({ type: "box", id, sentAt, box, dropped: false });
-  }
 }
 
 function onBitmap(bitmap: ImageBitmap, id: number, sentAt: number) {
@@ -162,15 +112,9 @@ function onBitmap(bitmap: ImageBitmap, id: number, sentAt: number) {
   scheduleRebuild();
 }
 
-function sourceSize(source: VideoFrame | ImageBitmap): { width: number; height: number } {
-  if ("displayWidth" in source) return { width: source.displayWidth, height: source.displayHeight };
-  return { width: source.width, height: source.height };
-}
-
-function paint(source: VideoFrame | ImageBitmap): OffscreenCanvas {
+function paint(source: ImageBitmap): OffscreenCanvas {
   const width = 320;
-  const size = sourceSize(source);
-  const height = Math.max(1, Math.round((size.height / Math.max(size.width, 1)) * width));
+  const height = Math.max(1, Math.round((source.height / Math.max(source.width, 1)) * width));
   if (!canvas || !context) {
     canvas = new OffscreenCanvas(width, height);
     context = canvas.getContext("2d", { alpha: false });

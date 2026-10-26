@@ -2,7 +2,6 @@ import type { NormBox } from "./match";
 
 type AxisFilter = {
   hat: number;
-  rate: number;
   at: number;
 };
 
@@ -48,29 +47,20 @@ export function createLabelMotion(): LabelMotion {
   };
 }
 
-function smoothingAlpha(cutoff: number, dt: number): number {
-  const tau = 1 / (2 * Math.PI * cutoff);
-  return 1 / (1 + tau / dt);
-}
-
-function filterAxis(axis: AxisFilter | null, value: number, now: number, deadzone: number, cutoff: number): AxisFilter {
-  if (!axis) return { hat: value, rate: 0, at: now };
-  const dt = (now - axis.at) / 1000;
-  if (dt <= 0.004) return { ...axis, at: now };
-  if (dt > 0.25) return { hat: value, rate: 0, at: now };
-  if (Math.abs(value - axis.hat) < deadzone) return { hat: axis.hat, rate: 0, at: now };
-  const alpha = smoothingAlpha(cutoff, dt);
-  return { hat: value * alpha + axis.hat * (1 - alpha), rate: 0, at: now };
+function follow(previous: AxisFilter | null, value: number, now: number, deadzone: number): AxisFilter {
+  if (!previous || now - previous.at > 250) return { hat: value, at: now };
+  if (Math.abs(value - previous.hat) < deadzone) return { hat: previous.hat, at: now };
+  return { hat: previous.hat + (value - previous.hat) * 0.5, at: now };
 }
 
 export function noteFace(motion: LabelMotion, box: NormBox, capturedAt: number): void {
   motion.target = box;
   const previousX = motion.x?.hat;
   const previousY = motion.y?.hat;
-  motion.x = filterAxis(motion.x, box.x, capturedAt, 0.012, 2.2);
-  motion.y = filterAxis(motion.y, box.y, capturedAt, 0.012, 2.2);
-  motion.w = filterAxis(motion.w, box.width, capturedAt, 0.02, 0.8);
-  motion.h = filterAxis(motion.h, box.height, capturedAt, 0.02, 0.8);
+  motion.x = follow(motion.x, box.x, capturedAt, 0.012);
+  motion.y = follow(motion.y, box.y, capturedAt, 0.012);
+  motion.w = follow(motion.w, box.width, capturedAt, 0.02);
+  motion.h = follow(motion.h, box.height, capturedAt, 0.02);
   if (
     previousX !== undefined &&
     previousY !== undefined &&
@@ -144,7 +134,7 @@ export function stepLabel(
 ): void {
   const dt = Math.min(0.05, Math.max(0.001, (now - (motion.lastTime || now)) / 1000));
   motion.lastTime = now;
-  const settle = 1 - Math.exp(-12 * dt);
+  const settle = Math.min(1, dt * 12);
 
   if (now - motion.measuredAt > 250) {
     motion.labelWidth = label.offsetWidth || motion.labelWidth;

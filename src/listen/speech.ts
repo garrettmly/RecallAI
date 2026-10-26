@@ -71,100 +71,83 @@ export function startListening(handlers: SpeechHandlers): { stop: () => void } |
   const Ctor = speechConstructor();
   if (!Ctor) return null;
 
-  let alive = true;
+  let stopped = false;
   let current: SpeechRecognitionLike | null = null;
   let recycleTimer = 0;
-  let token = 0;
+  let session = 0;
 
-  const forget = (recognition: SpeechRecognitionLike) => {
-    recognition.onend = null;
-    recognition.onresult = null;
-    try {
-      recognition.abort();
-    } catch {
-      try {
-        recognition.stop();
-      } catch {
-        // Already stopped.
-      }
-    }
-  };
-
-  const startFresh = () => {
-    if (!alive) return;
-    const mine = ++token;
+  const listen = () => {
+    if (stopped) return;
+    const mine = ++session;
     const recognition = new Ctor();
     current = recognition;
-    let emitted = 0;
+    let heard = 0;
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
     recognition.onspeechstart = () => {
-      if (mine === token) handlers.onSpeechStart?.();
+      if (mine === session) handlers.onSpeechStart?.();
     };
     recognition.onspeechend = () => {
-      if (mine === token) handlers.onSpeechEnd?.();
+      if (mine === session) handlers.onSpeechEnd?.();
     };
     recognition.onresult = (event) => {
-      if (mine !== token) return;
-      const next = unreadSpeech(event.results, emitted);
-      emitted = next.emitted;
+      if (mine !== session) return;
+      const next = unreadSpeech(event.results, heard);
+      heard = next.emitted;
       if (next.confirmed) handlers.onFinal(next.confirmed);
       else if (next.interim) handlers.onInterim(next.interim);
     };
     recognition.onerror = (event) => {
-      if (mine === token) reportSpeechError(event.error, handlers.onError);
+      if (mine === session) reportSpeechError(event.error, handlers.onError);
     };
     recognition.onend = () => {
-      if (!alive || mine !== token) return;
-      window.setTimeout(() => {
-        if (alive && mine === token) startFresh();
-      }, 250);
+      if (stopped || mine !== session) return;
+      window.setTimeout(listen, 250);
     };
     window.clearTimeout(recycleTimer);
     try {
       recognition.start();
     } catch {
       window.setTimeout(() => {
-        if (alive && mine === token) startFresh();
+        if (!stopped && mine === session) listen();
       }, 300);
       return;
     }
+    // Chrome gets slow if one listening session stays open for the whole visit.
     recycleTimer = window.setTimeout(() => {
-      if (!alive || mine !== token) return;
-      const handoff = ++token;
-      recognition.onresult = null;
-      recognition.onend = () => {
-        recognition.onend = null;
-        if (!alive || handoff !== token) return;
-        if (current === recognition) current = null;
-        startFresh();
-      };
+      if (stopped || mine !== session) return;
       try {
-        recognition.abort();
+        recognition.stop();
       } catch {
-        if (current === recognition) current = null;
-        startFresh();
+        listen();
       }
       window.setTimeout(() => {
-        if (!alive || handoff !== token || current !== recognition) return;
-        recognition.onend = null;
-        if (current === recognition) current = null;
-        startFresh();
+        if (!stopped && current === recognition) listen();
       }, 500);
     }, 20000);
   };
 
-  startFresh();
+  listen();
 
   return {
     stop() {
-      alive = false;
-      token += 1;
+      stopped = true;
+      session += 1;
       window.clearTimeout(recycleTimer);
       const recognition = current;
       current = null;
-      if (recognition) forget(recognition);
+      if (!recognition) return;
+      recognition.onend = null;
+      try {
+        recognition.abort();
+      } catch {
+        try {
+          recognition.stop();
+        } catch {
+          // Already stopped.
+        }
+      }
     },
   };
 }

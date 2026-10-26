@@ -10,9 +10,6 @@ export type VisitTiming = {
   cameraReadyMs: number | null;
   modelMs: number | null;
   peopleMs: number | null;
-  heardMs: number | null;
-  shownMs: number | null;
-  finalMs: number | null;
   extractMs: number | null;
 };
 
@@ -71,8 +68,6 @@ export function startVisitCamera(input: {
     detects: 0,
     skipped: 0,
     latencies: [] as number[],
-    longCount: 0,
-    longMs: 0,
   };
 
   const hideLabel = () => {
@@ -194,46 +189,24 @@ export function startVisitCamera(input: {
   const publish = () => {
     const samples = stats.latencies;
     const avg = samples.length ? samples.reduce((sum, value) => sum + value, 0) / samples.length : 0;
-    const sorted = [...samples].sort((a, b) => a - b);
-    const p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.95) - 1)] : 0;
     const snapshot: RecallAIPerf = {
       previewFps: stats.preview,
       detectFps: stats.detects,
       detectMsAvg: Math.round(avg),
-      detectMsP95: Math.round(p95),
       skipped: stats.skipped,
       inflight: inflight ? 1 : 0,
       matchMs: matchMsRef.current,
       cameraReadyMs: timingRef.current.cameraReadyMs,
       modelMs: timingRef.current.modelMs,
       peopleMs: timingRef.current.peopleMs,
-      heardMs: timingRef.current.heardMs,
-      shownMs: timingRef.current.shownMs,
-      finalMs: timingRef.current.finalMs,
       extractMs: timingRef.current.extractMs,
-      longTaskCount: stats.longCount,
-      longTaskMs: Math.round(stats.longMs),
     };
     window.__recallAIPerf = snapshot;
     if (new URLSearchParams(window.location.search).has("perf")) input.setPerf(snapshot);
     stats.preview = 0;
     stats.detects = 0;
     stats.skipped = 0;
-    stats.longCount = 0;
-    stats.longMs = 0;
   };
-
-  const longTasks = new PerformanceObserver((list) => {
-    for (const entry of list.getEntries()) {
-      stats.longCount += 1;
-      stats.longMs += entry.duration;
-    }
-  });
-  try {
-    longTasks.observe({ entryTypes: ["longtask"] });
-  } catch {
-    // This browser does not report long tasks.
-  }
 
   publishTimer = window.setInterval(publish, 1000);
 
@@ -322,7 +295,6 @@ export function startVisitCamera(input: {
     window.cancelAnimationFrame(fallbackFrame);
     if (videoFrameId) video.cancelVideoFrameCallback(videoFrameId);
     window.clearInterval(publishTimer);
-    longTasks.disconnect();
     hideLabel();
     window.clearInterval(sampleTimer);
     worker?.postMessage({ type: "stop" });

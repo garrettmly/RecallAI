@@ -42,38 +42,43 @@ export function cleanFacts(value) {
   return facts;
 }
 
-const TASK =
-  /^(?:please\s+)?(?:i\s+)?(?:really\s+)?(?:need|have|has|should|must|want|wanna|gotta|got)\s+to\s+\S/i;
-const REMEMBER = /^(?:please\s+)?(?:remember|don't forget|do not forget)\s+to\s+\S/i;
+const TASK_VERBS = ["need", "have", "has", "should", "must", "want", "wanna", "gotta", "got"];
+const REMEMBER_LEADS = ["remember to ", "don't forget to ", "do not forget to "];
+
+function stripLead(line) {
+  const remind = line.match(/^remind\s+.+?\s+to\s+(.+)$/i);
+  if (remind) return remind[1];
+  let rest = line.replace(/^please\s+/i, "");
+  rest = rest.replace(/^(i\s+)?(really\s+)?/i, "");
+  const lower = rest.toLowerCase();
+  for (const verb of TASK_VERBS) {
+    const lead = `${verb} to `;
+    if (lower.startsWith(lead)) return rest.slice(lead.length);
+  }
+  for (const lead of REMEMBER_LEADS) {
+    if (lower.startsWith(lead)) return rest.slice(lead.length);
+  }
+  return line;
+}
 
 export function reminderLine(text, name) {
-  let line = String(text || "").replace(/\s+/g, " ").trim().replace(/[.?!]+$/, "");
-  if (!line) return "";
+  const line = String(text || "").replace(/\s+/g, " ").trim().replace(/[.?!]+$/, "");
+  const task = stripLead(line).trim().replace(/[.?!]+$/, "");
+  if (!task) return "";
   const who = String(name || "").trim() || "them";
-  const already = line.match(/^remind\s+.+?\s+to\s+(.+)$/i);
-  if (already) line = already[1];
-  else {
-    line = line.replace(
-      /^(?:please\s+)?(?:i\s+)?(?:really\s+)?(?:need|have|has|should|must|want|wanna|gotta|got)\s+to\s+/i,
-      "",
-    );
-    line = line.replace(/^(?:please\s+)?(?:remember|don't forget|do not forget)\s+to\s+/i, "");
-  }
-  line = line.trim().replace(/[.?!]+$/, "");
-  if (!line) return "";
-  return `Remind ${who} to ${line.charAt(0).toLowerCase()}${line.slice(1)}`;
+  return `Remind ${who} to ${task.charAt(0).toLowerCase()}${task.slice(1)}`;
 }
 
 export function taskFromLine(text, name) {
-  const line = String(text || "").replace(/\s+/g, " ").trim();
-  if (!TASK.test(line) && !REMEMBER.test(line) && !/^remind\s+\S+\s+to\s+\S/i.test(line)) return "";
+  const line = String(text || "").replace(/\s+/g, " ").trim().replace(/[.?!]+$/, "");
+  if (!line || stripLead(line) === line) return "";
   return reminderLine(line, name);
 }
 
 export function tasksFromSpeech(transcript, name) {
   const seen = new Set();
   const tasks = [];
-  for (const part of String(transcript || "").split(/(?<=[.!?])\s+|\n+/)) {
+  for (const part of String(transcript || "").split(/[.!?\n]+/)) {
     const task = taskFromLine(part, name);
     if (!task || seen.has(task.toLowerCase())) continue;
     seen.add(task.toLowerCase());

@@ -24,12 +24,12 @@ function isRelevant(memory, needed) {
   const hay = words(memory.text);
   const matched = scoreMemory(needed, memory.text);
   if (!needed.length || !hay.length || matched === 0) return false;
-  const coverage = matched / needed.length;
+  const halfTheQuestion = matched / needed.length >= 0.5;
   if (memory.kind === "said") {
-    const focus = matched / hay.length;
-    return coverage >= 0.5 && hay.length <= 10 && focus >= 0.25;
+    const mostlyAboutThis = matched / hay.length >= 0.25;
+    return halfTheQuestion && hay.length <= 10 && mostlyAboutThis;
   }
-  return coverage >= 0.5 || matched >= 2;
+  return halfTheQuestion || matched >= 2;
 }
 
 const DANGLING =

@@ -1,15 +1,18 @@
 import { mergeCard, reminderLine, taskFromLine, tasksFromSpeech } from "../../server/notes.mjs";
 import type { Notes, Person } from "../types";
 
-export function shouldExtract(pending: string, lastSpeechAt: number, lastExtractAt: number, now = Date.now()): boolean {
+export function shouldExtract(
+  pending: string,
+  lastSpeechAt: number,
+  lastExtractAt: number,
+  now = Date.now(),
+  phraseEnded = false,
+): boolean {
   const text = pending.trim();
   if (text.length < 8) return false;
-  const quietFor = now - lastSpeechAt;
-  const sinceExtract = now - lastExtractAt;
-  const thoughtEnded = quietFor > 600;
-  const longEnough = text.length >= 80;
-  if (!thoughtEnded && !longEnough) return false;
-  if (sinceExtract < 1500) return false;
+  // A finished phrase sends immediately. Live speech still waits for a short pause so a word is not cut in half.
+  if (!phraseEnded && now - lastSpeechAt < 280 && text.length < 40) return false;
+  if (now - lastExtractAt < 350) return false;
   return true;
 }
 
@@ -35,24 +38,20 @@ export function applyNotes(person: Person, notes: Notes, transcript: string, now
     ...notes.facts.map((text) => taskFromLine(text, person.name)),
     ...tasksFromSpeech(transcript, person.name),
   ];
-  const reminders = [
-    ...kept,
-    ...incoming
-      .filter((text) => {
-        if (!text) return false;
-        const key = text.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .map((text) => ({ id: crypto.randomUUID(), text, at: now, done: false })),
-  ].slice(-12);
+  const reminders = [...kept];
+  for (const text of incoming) {
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    reminders.push({ id: crypto.randomUUID(), text, at: now, done: false });
+  }
   return {
     ...person,
     name: merged.name,
     relationship: merged.relationship,
     facts,
-    reminders,
+    reminders: reminders.slice(-12),
     excerpts: [...person.excerpts, { text: transcript.slice(0, 280), at: now }].slice(-8),
     updatedAt: now,
     lastSeenAt: now,

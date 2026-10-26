@@ -8,7 +8,7 @@ import { updateFromFace } from "./matchFace";
 import { glassesCommand, recallUtterance } from "../../shared/glassesVoice.mjs";
 import { reminderLine } from "../../server/notes.mjs";
 import { applyNotes, shouldExtract } from "./saveTranscript";
-import { listenForVisit } from "./visitSpeech";
+import { startListening } from "../listen/speech";
 
 type Phase = "welcome" | "running" | "paused";
 type View = "visit" | "memories";
@@ -35,11 +35,13 @@ export function useRecallAI(
   const [ready, setReady] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [perf, setPerf] = useState<VisitPerf | null>(null);
+  const [heard, setHeard] = useState("");
 
   const peopleRef = useRef<Person[]>([]);
   const activeIdRef = useRef<string | null>(null);
   const pendingRef = useRef("");
   const liveRef = useRef("");
+  const phraseEndedRef = useRef(false);
   const lastSpeechAtRef = useRef(0);
   const lastExtractAtRef = useRef(0);
   const lastFaceAtRef = useRef(0);
@@ -48,9 +50,6 @@ export function useRecallAI(
     cameraReadyMs: null as number | null,
     modelMs: null as number | null,
     peopleMs: null as number | null,
-    heardMs: null as number | null,
-    shownMs: null as number | null,
-    finalMs: null as number | null,
     extractMs: null as number | null,
   });
   const stableRef = useRef<{ descriptor: Float32Array; since: number } | null>(null);
@@ -194,7 +193,8 @@ export function useRecallAI(
     if (extractingRef.current) return;
     const personId = activeIdRef.current;
     const pending = `${pendingRef.current} ${liveRef.current}`.trim();
-    if (!personId || !shouldExtract(pending, lastSpeechAtRef.current, lastExtractAtRef.current)) return;
+    const phraseEnded = phraseEndedRef.current;
+    if (!personId || !shouldExtract(pending, lastSpeechAtRef.current, lastExtractAtRef.current, Date.now(), phraseEnded)) return;
 
     const person = peopleRef.current.find((item) => item.id === personId);
     if (!person) return;
@@ -202,6 +202,7 @@ export function useRecallAI(
     const snapshot = pending;
     pendingRef.current = "";
     liveRef.current = "";
+    phraseEndedRef.current = false;
     const extractStarted = performance.now();
     try {
       const result = await extractNotes({
@@ -225,7 +226,14 @@ export function useRecallAI(
       }
       const latest = peopleRef.current.find((item) => item.id === personId) ?? person;
       const now = Date.now();
-      commitPerson(applyNotes(latest, result, snapshot, now));
+      const updated = applyNotes(latest, result, snapshot, now);
+      commitPerson(updated);
+      const wrote =
+        updated.name !== latest.name ||
+        updated.relationship !== latest.relationship ||
+        updated.facts.length !== latest.facts.length ||
+        updated.reminders.length !== (latest.reminders ?? []).length;
+      if (wrote) setHeard("");
       setKeyMissing(false);
       setExtractError(null);
       lastExtractAtRef.current = now;
@@ -242,7 +250,7 @@ export function useRecallAI(
     if (phase !== "running") return;
     const timer = window.setInterval(() => {
       void flushRef.current();
-    }, 400);
+    }, 150);
     return () => window.clearInterval(timer);
   }, [phase]);
 
@@ -252,15 +260,20 @@ export function useRecallAI(
     let listener: { stop: () => void } | null = null;
     const timer = window.setTimeout(() => {
       if (stopped) return;
-      listener = listenForVisit({
+      listener = startListening({
         onInterim: (text) => {
           if (glassesCommand(text) || recallUtterance(text)) return;
-          liveRef.current = text.trim();
+          const line = text.trim();
+          liveRef.current = line;
           lastSpeechAtRef.current = Date.now();
+          phraseEndedRef.current = false;
+          setHeard(line);
         },
-        onFinal: (text, finalMs) => {
+        onFinal: (text) => {
           if (spokenRef?.current?.(text)) {
             liveRef.current = "";
+            phraseEndedRef.current = false;
+            setHeard("");
             return;
           }
           const spoken = text.trim();
@@ -271,13 +284,9 @@ export function useRecallAI(
           liveRef.current = "";
           pendingRef.current = next.length > 4000 ? next.slice(-4000) : next;
           lastSpeechAtRef.current = Date.now();
-          if (finalMs !== null) timingRef.current.finalMs = finalMs;
-        },
-        onHeard: (ms) => {
-          timingRef.current.heardMs = ms;
-        },
-        onShown: (ms) => {
-          timingRef.current.shownMs = ms;
+          phraseEndedRef.current = true;
+          setHeard(addition);
+          void flushRef.current();
         },
         onError: (message) => setSpeechError(message),
       });
@@ -337,6 +346,7 @@ export function useRecallAI(
     extractError,
     keyMissing,
     ready,
+    heard,
     confirmingDelete,
     perf,
     start: () => {
@@ -407,6 +417,8 @@ export function useRecallAI(
       peopleRef.current = [];
       pendingRef.current = "";
       liveRef.current = "";
+      phraseEndedRef.current = false;
+      setHeard("");
       setPeople([]);
       showPerson(null, false);
       setConfirmingDelete(false);

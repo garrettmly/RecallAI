@@ -25,12 +25,14 @@ function PersonCard({
   name,
   relationship,
   cue,
+  heard,
   points,
 }: {
   labelRef: RefObject<HTMLElement | null>;
   name: string;
   relationship: string;
   cue?: string;
+  heard?: string;
   points: { id: string; text: string }[];
 }) {
   return (
@@ -40,13 +42,14 @@ function PersonCard({
         {relationship ? <span className="pill relation">{relationship}</span> : null}
       </div>
       {cue ? <p className="note reminder">{cue}</p> : null}
+      {heard ? <p className="note">{heard}</p> : null}
       {points.length > 0 ? (
         <ul className="note points">
           {points.map((fact) => (
             <li key={fact.id}>{fact.text}</li>
           ))}
         </ul>
-      ) : (
+      ) : heard ? null : (
         <p className="note">Waiting to hear a name.</p>
       )}
     </aside>
@@ -316,6 +319,7 @@ export function App() {
               name={known && app.active?.name ? app.active.name : "Listening"}
               relationship={relationship}
               cue={cue}
+              heard={app.heard}
               points={points}
             />
           }
@@ -333,12 +337,13 @@ export function App() {
           name={known && app.active?.name ? app.active.name : "Listening"}
           relationship={relationship}
           cue={cue}
+          heard={app.heard}
           points={points}
         />
       ) : null}
       {app.perf ? (
         <pre className="perf">
-          {`camera ${ms(app.perf.cameraReadyMs)}   models ${ms(app.perf.modelMs)}   book ${ms(app.perf.peopleMs)}\nmatch ${ms(app.perf.matchMs)}\nspeech heard ${ms(app.perf.heardMs)}   shown ${ms(app.perf.shownMs)}   final ${ms(app.perf.finalMs)}\nextract ${ms(app.perf.extractMs)}\npreview ${app.perf.previewFps} fps   detect ${app.perf.detectFps} fps  ${app.perf.detectMsAvg}/${app.perf.detectMsP95} ms\nskipped ${app.perf.skipped}   long tasks ${app.perf.longTaskCount} (${app.perf.longTaskMs} ms)`}
+          {`camera ${ms(app.perf.cameraReadyMs)}   models ${ms(app.perf.modelMs)}   book ${ms(app.perf.peopleMs)}\nmatch ${ms(app.perf.matchMs)}   extract ${ms(app.perf.extractMs)}\npreview ${app.perf.previewFps} fps   detect ${app.perf.detectFps} fps   ${app.perf.detectMsAvg} ms\nskipped ${app.perf.skipped}`}
         </pre>
       ) : null}
     </div>

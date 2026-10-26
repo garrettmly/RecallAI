@@ -55,11 +55,12 @@ export function updateFromFace(input: {
       const person = input.people.find((item) => item.id === match.id);
       if (person) {
         const nearest = Math.min(...person.descriptors.map((saved) => euclidean(saved, face.descriptor)));
-        const descriptors =
-          person.descriptors.length < 5 && nearest > 0.18
-            ? [...person.descriptors, Array.from(face.descriptor)]
-            : person.descriptors;
-        if (!(descriptors === person.descriptors && now - person.lastSeenAt < 5000)) {
+        const roomForAnother = person.descriptors.length < 5 && nearest > 0.18;
+        const descriptors = roomForAnother
+          ? [...person.descriptors, Array.from(face.descriptor)]
+          : person.descriptors;
+        const sameFaceSavedRecently = descriptors === person.descriptors && now - person.lastSeenAt < 5000;
+        if (!sameFaceSavedRecently) {
           saved = {
             ...person,
             descriptors,

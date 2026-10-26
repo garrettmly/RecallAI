@@ -53,6 +53,7 @@ function loadModels(modelUrl: string): Promise<void> {
 async function recognize(bitmap: ImageBitmap) {
   const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
   let tensor: ReturnType<typeof tf.browser.fromPixels> | null = null;
+  // Drop the temporary face data when this function ends, or the page slows down.
   tf.engine().startScope();
   try {
     tensor = tf.browser.fromPixels(bitmap);

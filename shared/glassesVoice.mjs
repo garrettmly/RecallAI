@@ -8,11 +8,28 @@ function spoken(text) {
     .trim();
 }
 
+function hasWord(text, word) {
+  return ` ${text} `.includes(` ${word} `);
+}
+
+function anyWord(text, words) {
+  return words.some((word) => hasWord(text, word));
+}
+
 export function recallUtterance(text) {
   const raw = String(text || "").replace(/\s+/g, " ").trim();
-  const match = raw.match(/^(?:hey|hay|hi|ok|okay)[,.]?\s+recall(?:\s+ai)?\b[,:]?\s*(.*)$/i);
-  if (!match) return null;
-  return { rest: match[1].replace(/\s+/g, " ").trim() };
+  const lower = raw.toLowerCase();
+  const hello = ["hey", "hay", "hi", "ok", "okay"].find((word) => {
+    return lower.startsWith(`${word} `) || lower.startsWith(`${word},`) || lower.startsWith(`${word}.`);
+  });
+  if (!hello) return null;
+  let rest = raw.slice(hello.length).replace(/^[,.\s]+/, "");
+  if (!rest.toLowerCase().startsWith("recall")) return null;
+  rest = rest.slice("recall".length).replace(/^[,:\s]+/, "");
+  if (rest.toLowerCase().startsWith("ai") && (rest.length === 2 || /^[,:\s]/.test(rest.slice(2)))) {
+    rest = rest.slice(2).replace(/^[,:\s]+/, "");
+  }
+  return { rest: rest.trim() };
 }
 
 export function glassesCommand(text) {
@@ -20,10 +37,15 @@ export function glassesCommand(text) {
   const said = spoken(raw);
   if (!said) return null;
   if (recallUtterance(raw)) return "wake";
-  if (/(minimize|minimise|minize|hide|close).*\bnotes?\b.*\b(person|visitor)\b/.test(said)) return "person-off";
-  if (/(expand|open|show).*\bnotes?\b.*\b(person|visitor)\b/.test(said)) return "person-on";
-  if (/(minimize|minimise|minize|hide|close).*\bnotes?\b/.test(said)) return "pad-off";
-  if (/(open|show|expand).*\bnotes?\b/.test(said)) return "pad-on";
-  if (raw.includes("?") || /^(who|what|when|where|why|how)\b/.test(said)) return "ask";
+  const aboutPerson = hasWord(said, "person") || hasWord(said, "visitor");
+  const aboutNotes = hasWord(said, "note") || hasWord(said, "notes");
+  const hide = anyWord(said, ["minimize", "minimise", "minize", "hide", "close"]);
+  const show = anyWord(said, ["expand", "open", "show"]);
+  if (aboutPerson && aboutNotes && hide) return "person-off";
+  if (aboutPerson && aboutNotes && show) return "person-on";
+  if (aboutNotes && hide) return "pad-off";
+  if (aboutNotes && show) return "pad-on";
+  const first = said.split(" ")[0];
+  if (raw.includes("?") || ["who", "what", "when", "where", "why", "how"].includes(first)) return "ask";
   return null;
 }
